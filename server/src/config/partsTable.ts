@@ -38,13 +38,13 @@ export const PARTS_TABLE: PartDefinition[] = [
     id: 'piernas_saltador',
     name: 'Piernas Saltador',
     slot: 'Legs',   tier: 'T2', cost: TIER_COSTS.T2,
-    statModifiers: { speed: 1.0, armor: -1 },           // dash CD -0.5s en equipped parts
+    statModifiers: { speed: 1.0, armor: -1, attackRate: 0.3 }, // dash + ataque más rápido
   },
   {
     id: 'zancos_queratinosos',
     name: 'Zancos Queratinosos',
     slot: 'Legs',   tier: 'T3', cost: TIER_COSTS.T3,
-    statModifiers: { speed: 1.5, maxHp: 20 },           // velocidad + bulk (carry menos penalti)
+    statModifiers: { speed: 1.5, maxHp: 20, carryPenalty: -0.25 }, // carga: penalidad -25%
   },
 
   // ── Head — crit e inteligencia ────────────────────────────────────────────
@@ -64,7 +64,7 @@ export const PARTS_TABLE: PartDefinition[] = [
     id: 'bulbo_neural',
     name: 'Bulbo Neural',
     slot: 'Head',   tier: 'T3', cost: TIER_COSTS.T3,
-    statModifiers: { critChance: 0.10, critMult: 0.8, maxHp: -15 }, // glass cannon
+    statModifiers: { critChance: 0.10, critMult: 0.8, maxHp: -15, interactSpeed: 0.5 }, // glass cannon + interacción 50% más rápida
   },
 
   // ── Torso — tanquear ──────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ export const PARTS_TABLE: PartDefinition[] = [
     id: 'masa_muscular',
     name: 'Masa Muscular',
     slot: 'Torso',  tier: 'T2', cost: TIER_COSTS.T2,
-    statModifiers: { maxHp: 40, armor: 2, critChance: -0.05 }, // tanque puro
+    statModifiers: { maxHp: 40, armor: 2, critChance: -0.05, carryPenalty: -0.15 }, // tanque + carga más fácil
   },
   {
     id: 'nucleo_regenerativo',

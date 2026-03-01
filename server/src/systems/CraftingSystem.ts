@@ -109,13 +109,21 @@ export class CraftingSystem {
     if (m.maxHp      !== undefined) player.maxHp        += sign * m.maxHp;
     if (m.damage     !== undefined) player.attackDamage += sign * m.damage;
     if (m.armor      !== undefined) player.armor        += sign * m.armor;
-    if (m.critChance !== undefined) player.critChance   += sign * m.critChance;
-    if (m.critMult   !== undefined) player.critMult     += sign * m.critMult;
-    if (m.lifeSteal  !== undefined) player.lifeSteal    += sign * m.lifeSteal;
+    if (m.critChance    !== undefined) player.critChance    += sign * m.critChance;
+    if (m.critMult      !== undefined) player.critMult      += sign * m.critMult;
+    if (m.lifeSteal     !== undefined) player.lifeSteal     += sign * m.lifeSteal;
+    if (m.attackRate    !== undefined) player.attackRate    += sign * m.attackRate;
+    if (m.pickupRadius  !== undefined) player.pickupRadius  += sign * m.pickupRadius;
+    if (m.carryPenalty  !== undefined) player.carryPenalty  += sign * m.carryPenalty;
+    if (m.interactSpeed !== undefined) player.interactSpeed += sign * m.interactSpeed;
     // Clamp sanity
-    player.critChance = Math.max(0, Math.min(0.95, player.critChance));
-    player.critMult   = Math.max(1.0, player.critMult);
-    player.armor      = Math.max(0, player.armor);
-    player.speed      = Math.max(1.0, player.speed);
+    player.critChance    = Math.max(0, Math.min(0.95, player.critChance));
+    player.critMult      = Math.max(1.0, player.critMult);
+    player.armor         = Math.max(0, player.armor);
+    player.speed         = Math.max(1.0, player.speed);
+    player.attackRate    = Math.max(0.2, player.attackRate);
+    player.pickupRadius  = Math.max(0.5, player.pickupRadius);
+    player.carryPenalty  = Math.max(0.3, Math.min(1.0, player.carryPenalty));
+    player.interactSpeed = Math.max(0.3, player.interactSpeed);
   }
 }

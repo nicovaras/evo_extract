@@ -10,38 +10,36 @@ const PARTS: PartDefinition[] = [
   { id: 'latigos_tendinosos',  name: 'Látigos Tendinosos',   slot: 'Arms',  tier: 'T3', cost: 210, statModifiers: { damage: 10, attackRate: 0.5, armor: -1 } },
   // Legs
   { id: 'patas_felinas',       name: 'Patas Felinas',        slot: 'Legs',  tier: 'T1', cost: 55,  statModifiers: { speed: 2.0, maxHp: -10 } },
-  { id: 'piernas_saltador',    name: 'Piernas Saltador',     slot: 'Legs',  tier: 'T2', cost: 120, statModifiers: { speed: 1.0, armor: -1 } },
-  { id: 'zancos_queratinosos', name: 'Zancos Queratinosos',  slot: 'Legs',  tier: 'T3', cost: 210, statModifiers: { speed: 1.5, maxHp: 20 } },
+  { id: 'piernas_saltador',    name: 'Piernas Saltador',     slot: 'Legs',  tier: 'T2', cost: 120, statModifiers: { speed: 1.0, armor: -1, attackRate: 0.3 } },
+  { id: 'zancos_queratinosos', name: 'Zancos Queratinosos',  slot: 'Legs',  tier: 'T3', cost: 210, statModifiers: { speed: 1.5, maxHp: 20, carryPenalty: -0.25 } },
   // Head
   { id: 'craneo_cazador',      name: 'Cráneo Cazador',       slot: 'Head',  tier: 'T1', cost: 55,  statModifiers: { critChance: 0.15, critMult: 0.5, attackRate: -0.2 } },
   { id: 'ojo_compuesto',       name: 'Ojo Compuesto',        slot: 'Head',  tier: 'T2', cost: 120, statModifiers: { pickupRadius: 2.0, damage: 5 } },
-  { id: 'bulbo_neural',        name: 'Bulbo Neural',         slot: 'Head',  tier: 'T3', cost: 210, statModifiers: { critChance: 0.10, critMult: 0.8, maxHp: -15 } },
+  { id: 'bulbo_neural',        name: 'Bulbo Neural',         slot: 'Head',  tier: 'T3', cost: 210, statModifiers: { critChance: 0.10, critMult: 0.8, maxHp: -15, interactSpeed: 0.5 } },
   // Torso
   { id: 'caparazon_ligero',    name: 'Caparazón Ligero',     slot: 'Torso', tier: 'T1', cost: 55,  statModifiers: { maxHp: 50, armor: 3, speed: -0.5 } },
-  { id: 'masa_muscular',       name: 'Masa Muscular',        slot: 'Torso', tier: 'T2', cost: 120, statModifiers: { maxHp: 40, armor: 2, critChance: -0.05 } },
+  { id: 'masa_muscular',       name: 'Masa Muscular',        slot: 'Torso', tier: 'T2', cost: 120, statModifiers: { maxHp: 40, armor: 2, critChance: -0.05, carryPenalty: -0.15 } },
   { id: 'nucleo_regenerativo', name: 'Núcleo Regenerativo',  slot: 'Torso', tier: 'T3', cost: 210, statModifiers: { lifeSteal: 0.12, maxHp: 30, speed: -0.3 } },
   // Ranged
   { id: 'modulo_ranged',       name: 'Módulo de Disparo',    slot: 'Ranged', tier: 'T1', cost: 60,  statModifiers: { damage: -6 } },
 ];
 
 const SLOTS: PartSlot[] = ['Head', 'Arms', 'Legs', 'Torso', 'Ranged'];
-const SLOT_LABELS: Record<PartSlot, string> = { Head: '🧠 Cabeza', Arms: '💪 Brazos', Legs: '🦵 Piernas', Torso: '🛡️ Torso', Ranged: '🔫 Disparo' };
+const SLOT_LABELS: Record<PartSlot, string> = { Head: '🧠 Head', Arms: '💪 Arms', Legs: '🦵 Legs', Torso: '🛡 Torso', Ranged: '🔫 Ranged' };
 const TIER_COLORS: Record<string, string> = { T1: '#aaffaa', T2: '#aaaaff', T3: '#ffaaaa' };
 
 const EXTRA_EFFECTS: Record<string, string> = {
   piernas_saltador:    '  · Dash CD -0.5s',
-  zancos_queratinosos: '  · Carga: pen. 0.85x',
-  bulbo_neural:        '  · Interacción -30%',
-  masa_muscular:       '  · Carga: pen. 0.85x',
-  nucleo_regenerativo: '  · Regen 1HP/s',
+  nucleo_regenerativo: '  · Regen 1HP/s base',
   modulo_ranged:       '  · Activa ataque a distancia',
 };
 
 function formatModifiers(mods: Partial<Record<string, number>>): string {
   const lines: string[] = [];
   const labels: Record<string, string> = {
-    speed: 'Vel', maxHp: 'MaxHP', damage: 'Daño', attackRate: 'Cad',
-    armor: 'Arm', critChance: 'Crit%', critMult: 'CritX', lifeSteal: 'LifeSteal', pickupRadius: 'PickupR',
+    speed: 'Vel', maxHp: 'MaxHP', damage: 'Daño', attackRate: 'Cadencia',
+    armor: 'Armor', critChance: 'Crit%', critMult: 'CritX', lifeSteal: 'LifeSteal',
+    pickupRadius: 'Radio ADN', carryPenalty: 'Carga pen.', interactSpeed: 'Interacción',
   };
   for (const [key, val] of Object.entries(mods)) {
     if (val === undefined) continue;
@@ -51,8 +49,8 @@ function formatModifiers(mods: Partial<Record<string, number>>): string {
   return lines.join('\n');
 }
 
-const PANEL_W = 560;
-const PANEL_H = 520;
+const PANEL_W = 600;
+const PANEL_H = 540;
 const DEPTH = 100;
 
 export class CraftingPanel {
@@ -165,7 +163,7 @@ export class CraftingPanel {
     // Tabs
     const tabY = oy + 50;
     SLOTS.forEach((slot, i) => {
-      const tabX = ox + 14 + i * 134;
+      const tabX = ox + 10 + i * 116;
       const btn = this.scene.add.text(tabX, tabY, SLOT_LABELS[slot], {
         fontSize: '13px', color: '#aaaaaa', fontFamily: 'monospace',
         backgroundColor: '#1a1a2e', padding: { x: 8, y: 4 },

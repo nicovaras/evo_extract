@@ -131,13 +131,14 @@ export class ExtractionRoom extends Room<GameState> {
 
     // Melee attack — hits all enemies within range
     const MELEE_RANGE = 130; // wider range so player doesn't need to be inside enemy hitbox
-    const MELEE_COOLDOWN_MS = 600;
+    const MELEE_COOLDOWN_BASE_MS = 600;
     const meleeCooldown = new Map<string, number>();
     this.onMessage('meleeAttack', (client, data: { vx: number; vy: number }) => {
       const player = this.state.players.get(client.sessionId);
       if (!player || player.isDown || player.isRanged) return;
       const now = Date.now();
-      if ((now - (meleeCooldown.get(client.sessionId) ?? 0)) < MELEE_COOLDOWN_MS) return;
+      const cooldownMs = MELEE_COOLDOWN_BASE_MS / (player.attackRate ?? 1.0);
+      if ((now - (meleeCooldown.get(client.sessionId) ?? 0)) < cooldownMs) return;
       meleeCooldown.set(client.sessionId, now);
 
       // Hit enemies in a cone in front of the player

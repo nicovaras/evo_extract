@@ -184,7 +184,7 @@ export class HUD {
       .setDepth(50);
 
     // ── Stats panel (bottom-left) ─────────────────────────────────────────────
-    const statsLines = 6;
+    const statsLines = 10;
     const statsLineH = 16;
     const statsPanelH = statsLines * statsLineH + 12;
     const statsPanelW = 175;
@@ -276,7 +276,7 @@ export class HUD {
 
       // ── Stats panel with part deltas ──────────────────────────────────────
       const BASE_DAMAGE = 12;
-      const BASE_SPEED = 6.0;
+      const BASE_SPEED = 4.2;
       const BASE_ARMOR = 2;
       const BASE_CRIT = 5; // percent
 
@@ -285,14 +285,18 @@ export class HUD {
       for (let i = 0; i < equipped.length; i++) equippedIds.push(equipped[i]);
 
       // Accumulate deltas from equipped parts
-      let dDamage = 0, dSpeed = 0, dArmor = 0, dCrit = 0;
+      let dDamage = 0, dSpeed = 0, dArmor = 0, dCrit = 0, dCad = 0, dPickup = 0, dCarry = 0, dInteract = 0;
       for (const pid of equippedIds) {
         const part = PARTS_TABLE.find(p => p.id === pid);
         if (!part) continue;
-        dDamage += part.statModifiers.damage ?? 0;
-        dSpeed += part.statModifiers.speed ?? 0;
-        dArmor += part.statModifiers.armor ?? 0;
-        dCrit += Math.round((part.statModifiers.critChance ?? 0) * 100);
+        dDamage   += part.statModifiers.damage        ?? 0;
+        dSpeed    += part.statModifiers.speed         ?? 0;
+        dArmor    += part.statModifiers.armor         ?? 0;
+        dCrit     += Math.round((part.statModifiers.critChance   ?? 0) * 100);
+        dCad      += part.statModifiers.attackRate    ?? 0;
+        dPickup   += part.statModifiers.pickupRadius  ?? 0;
+        dCarry    += part.statModifiers.carryPenalty  ?? 0;
+        dInteract += part.statModifiers.interactSpeed ?? 0;
       }
 
       function fmtDelta(val: number, decimals = 0): string {
@@ -300,18 +304,27 @@ export class HUD {
         const s = decimals > 0 ? val.toFixed(decimals) : String(val);
         return val > 0 ? ` [+${s}]` : ` [${s}]`;
       }
+      function fmtPct(val: number): string {
+        if (val === 0) return '';
+        return val > 0 ? ` [+${Math.round(val * 100)}%]` : ` [${Math.round(val * 100)}%]`;
+      }
 
+      const p = player as any;
       const critPct = Math.round((player.critChance ?? 0) * 100);
-      const critMultVal = ((player.critMult ?? 1.6) * 100 - 100).toFixed(0);
-      const mode = (player as any).isRanged ? '🔫 Ranged' : '⚔️ Melee';
-      const potions = (player as any).potions ?? 0;
+      const mode    = p.isRanged ? '🔫 Ranged' : '⚔️ Melee';
+      const potions = p.potions ?? 0;
+
       this.statsText.setText(
-        `${mode}  💊 ${potions} pociones (Q)\n` +
-        `⚔️ Daño: ${player.attackDamage ?? BASE_DAMAGE}${fmtDelta(dDamage)}\n` +
-        `👟 Vel:  ${(player.speed ?? BASE_SPEED).toFixed(1)}${fmtDelta(dSpeed, 1)}\n` +
-        `🛡️ Arm:  ${player.armor ?? BASE_ARMOR}${fmtDelta(dArmor)}\n` +
-        `🎯 Crit: ${critPct}%  x${(player.critMult ?? 1.6).toFixed(1)}${fmtDelta(dCrit)}%\n` +
-        `✨ LifeS: ${((player.lifeSteal ?? 0) * 100).toFixed(0)}%`
+        `${mode}  💊 x${potions} (Q)\n` +
+        `⚔️  Daño:     ${player.attackDamage}${fmtDelta(dDamage)}\n` +
+        `🎯  Crit:     ${critPct}%  x${(player.critMult ?? 1.6).toFixed(1)}${fmtDelta(dCrit)}%\n` +
+        `⚡  Cadencia: ${(p.attackRate ?? 1.0).toFixed(1)}x${fmtDelta(dCad, 1)}\n` +
+        `👟  Vel:      ${(player.speed ?? 4.2).toFixed(1)}${fmtDelta(dSpeed, 1)}\n` +
+        `🛡️  Armor:    ${player.armor}${fmtDelta(dArmor)}\n` +
+        `✨  LifeS:    ${Math.round((p.lifeSteal ?? 0) * 100)}%\n` +
+        `🧲  Radio:    ${(p.pickupRadius ?? 1.0).toFixed(1)}x${fmtDelta(dPickup, 1)}\n` +
+        `📦  Carga:    ${Math.round((1 - (p.carryPenalty ?? 1.0) * 0.45) * 100)}% vel${fmtPct(-dCarry)}\n` +
+        `⏱️  Interac:  ${(p.interactSpeed ?? 1.0).toFixed(1)}x${fmtDelta(dInteract, 1)}`
       );
     }
 

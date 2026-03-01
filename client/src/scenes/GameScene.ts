@@ -22,7 +22,7 @@ const WORLD_SIZE = 2000;
 const DASH_SPEED_MULT = 2;
 const DASH_DURATION_MS = 200;
 const DASH_COOLDOWN_MS = 1500;
-const BASE_SPEED = 420; // px/s — matches server speed 4.2 × 100
+const BASE_SPEED = 100; // px/s — matches server speed 4.2 × 100
 const BULLET_SPEED = 800;
 const FIRE_RATE_MS = Math.round(1000 / 2.2); // ~454ms between shots
 
@@ -356,7 +356,7 @@ export class GameScene extends Phaser.Scene {
           this.sealProgressBar = new HoldProgressBar(this, 'Sellando...');
         } else if (
           this.sealInProgress &&
-          now - this.sealHoldStart >= SEAL_TIME * 1000 &&
+          now - this.sealHoldStart >= (SEAL_TIME / ((serverPlayer as any).interactSpeed ?? 1.0)) * 1000 &&
           now - this.lastSealSent > 2000
         ) {
           this.sealInProgress = false;

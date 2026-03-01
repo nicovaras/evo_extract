@@ -25,7 +25,6 @@ export class AdnCollector {
   }
 
   tick(state: GameState, players: MapSchema<PlayerState>, dt: number): void {
-    const radiusSq = PICKUP_RADIUS_PX * PICKUP_RADIUS_PX;
     const magnetRadiusSq = MAGNET_RADIUS_PX * MAGNET_RADIUS_PX;
 
     // Track which nodes are being attracted and by whom (closest player wins)
@@ -34,12 +33,15 @@ export class AdnCollector {
     players.forEach((player, sessionId) => {
       if (player.isDown) return;
 
+      const pickupPx = PICKUP_RADIUS_PX * (player.pickupRadius ?? 1.0);
+      const radiusSq = pickupPx * pickupPx;
+
       state.adnNodes.forEach((node, nodeId) => {
         if (!node.active) return;
 
         const d = dist(player.x, player.y, node.x, node.y);
 
-        if (d <= PICKUP_RADIUS_PX) {
+        if (d <= pickupPx) {
           // Collect immediately
           player.adn += node.amount;
           node.active = false;

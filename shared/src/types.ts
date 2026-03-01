@@ -13,6 +13,8 @@ export interface PlayerStats {
   critMult: number;
   lifeSteal: number;
   pickupRadius: number;
+  carryPenalty: number;
+  interactSpeed: number;
 }
 
 // ─── Cargo ─────────────────────────────────────────────────────────────────────

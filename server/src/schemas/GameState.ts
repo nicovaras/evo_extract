@@ -12,7 +12,7 @@ export class PlayerState extends Schema {
   @type('number') hp: number = 120;
   @type('number') maxHp: number = 120;
   @type('number') adn: number = 0;
-  @type('number') speed: number = 4.2; // units/s × 100 = 420px/s
+  @type('number') speed: number = 2.5; // units/s × 100 = 420px/s
   @type('number') facing: number = 0;
   @type('boolean') isDown: boolean = false;
   @type('boolean') isCarrying: boolean = false;
@@ -26,6 +26,10 @@ export class PlayerState extends Schema {
   @type('boolean') isRanged: boolean = false;   // false = melee (default), true = ranged via craft
   @type('number') meleeDamage: number = 22;     // kept in sync by CraftingSystem
   @type('number') lifeSteal: number = 0;
+  @type('number') attackRate: number = 1.0;    // multiplier on attack speed (1.0 = base)
+  @type('number') pickupRadius: number = 1.0;  // multiplier on pickup radius
+  @type('number') carryPenalty: number = 1.0;  // multiplier on carry speed penalty (1.0 = full penalty)
+  @type('number') interactSpeed: number = 1.0; // multiplier on interact times (1.0 = base)
   @type('number') potions: number = 2;   // start with 2 potions
   @type('number') downedAt: number = 0;
 }
@@ -54,7 +58,7 @@ export class EnemyState extends Schema {
   @type('number') hp: number = 100;
   @type('number') maxHp: number = 100;
   @type('number') damage: number = 10;
-  @type('number') speed: number = 4.2;
+  @type('number') speed: number = 2.5;
   @type('number') adnDrop: number = 8;
   @type('boolean') isElite: boolean = false;
   @type('boolean') isBoss: boolean = false;

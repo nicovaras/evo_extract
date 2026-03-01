@@ -27,8 +27,8 @@ export class InputProcessor {
     if (len > 1) { dx /= len; dy /= len; }
 
     const dt = delta / 1000;
-    const carryMult = player.isCarrying ? CARRY_SPEED_MULT : 1.0;
-    const speed = player.speed * 100 * carryMult;
+    const carryPenalty = player.isCarrying ? CARRY_SPEED_MULT * (player.carryPenalty ?? 1.0) : 1.0;
+    const speed = player.speed * 100 * carryPenalty;
 
     // Total displacement this tick
     const totalX = dx * speed * dt;

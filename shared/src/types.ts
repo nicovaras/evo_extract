@@ -45,7 +45,7 @@ export interface Timers {
 }
 
 // ─── Parts ─────────────────────────────────────────────────────────────────────
-export type PartSlot = 'Head' | 'Arms' | 'Legs' | 'Torso';
+export type PartSlot = 'Head' | 'Arms' | 'Legs' | 'Torso' | 'Ranged';
 export type PartTier = 'T1' | 'T2' | 'T3';
 
 export interface PartDefinition {

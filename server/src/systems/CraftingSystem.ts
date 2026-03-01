@@ -70,6 +70,19 @@ export class CraftingSystem {
     // Apply new stat modifiers
     this._applyModifiers(player, part, 1);
 
+    // Ranged module: toggle combat mode
+    if (part.slot === 'Ranged') {
+      player.isRanged = true;
+    }
+    // If the old part in this slot was Ranged and we're replacing it, revert
+    if (alreadyInSlot) {
+      const oldPart = getPartById(alreadyInSlot);
+      if (oldPart?.slot === 'Ranged') player.isRanged = false;
+    }
+
+    // Keep meleeDamage in sync (base before ranged penalty)
+    player.meleeDamage = player.attackDamage;
+
     // Clamp HP to maxHp after potential maxHp changes
     if (player.hp > player.maxHp) player.hp = player.maxHp;
 

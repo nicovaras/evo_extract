@@ -75,6 +75,8 @@ export class GameScene extends Phaser.Scene {
   private eKey!: Phaser.Input.Keyboard.Key;
   private fKey!: Phaser.Input.Keyboard.Key;
   private rKey!: Phaser.Input.Keyboard.Key;
+  private tKey!: Phaser.Input.Keyboard.Key;
+  private lastWarpAttempt: number = 0;
 
   // Wall physics group
   private wallGroup!: Phaser.Physics.Arcade.StaticGroup;
@@ -184,6 +186,7 @@ export class GameScene extends Phaser.Scene {
     this.eKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     this.fKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.F);
     this.rKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+    this.tKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.T);
 
     // ── Crafting panel ─────────────────────────────────────────────────────────
     this.craftingPanel = new CraftingPanel(this, this.room);
@@ -208,9 +211,11 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    // ── Mouse click → shoot ────────────────────────────────────────────────────
+    // ── Mouse click → attack (melee or ranged depending on build) ─────────────
     this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
-      if (ptr.leftButtonDown()) this._tryShoot();
+      if (!ptr.leftButtonDown()) return;
+      const serverMe = this.room?.state?.players?.get(this.room.sessionId);
+      if (serverMe?.isRanged) this._tryShoot(); else this._tryMelee();
     });
 
     // ── Audio & Onboarding ─────────────────────────────────────────────────────
@@ -259,7 +264,14 @@ export class GameScene extends Phaser.Scene {
       this.player.setRotation(input.facing);
     }
 
-    if (input.shooting && this.gameHasStarted && !amDowned && !isCarrying) this._tryShoot();
+    if (input.shooting && this.gameHasStarted && !amDowned && !isCarrying) {
+      const serverMe = this.room.state.players.get(this.room.sessionId);
+      if (serverMe?.isRanged) {
+        this._tryShoot();
+      } else {
+        this._tryMelee();
+      }
+    }
 
     // ── Remote players (interpolate) ─────────────────────────────────────────
     const lerpFactor = 0.2;
@@ -296,6 +308,12 @@ export class GameScene extends Phaser.Scene {
 
       // ── E key logic ───────────────────────────────────────────────────────
       const inHub = inZone('hub', serverPlayer.x, serverPlayer.y);
+
+      // T → warp to spawn (panic button, 30s cooldown)
+      if (Phaser.Input.Keyboard.JustDown(this.tKey) && now - this.lastWarpAttempt > 1000) {
+        this.lastWarpAttempt = now;
+        this.room.send('warpToSpawn', {});
+      }
 
       const eJustDown = Phaser.Input.Keyboard.JustDown(this.eKey);
       const eDown = this.eKey?.isDown ?? false;
@@ -445,6 +463,17 @@ export class GameScene extends Phaser.Scene {
       this.physics.add.existing(wallRect, true);
       this.wallGroup.add(wallRect);
     }
+  }
+
+  private showToast(message: string, color = '#ffffff'): void {
+    const cam = this.cameras.main;
+    const x = cam.scrollX + cam.width / 2;
+    const y = cam.scrollY + cam.height * 0.2;
+    const txt = this.add.text(x, y, message, {
+      fontSize: '15px', color, fontFamily: 'monospace',
+      backgroundColor: '#00000099', padding: { x: 10, y: 5 },
+    }).setOrigin(0.5).setDepth(200);
+    this.tweens.add({ targets: txt, y: y - 40, alpha: 0, duration: 2000, onComplete: () => txt.destroy() });
   }
 
   private _label(x: number, y: number, text: string, color: string): void {
@@ -670,6 +699,13 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Toxic zones initial update
+    this.room.onMessage('warped', () => {
+      this.showToast('⚡ Teletransportado al spawn', '#7af');
+    });
+    this.room.onMessage('warpDenied', (msg: { cooldownLeft: number }) => {
+      this.showToast(`T — cooldown ${msg.cooldownLeft}s`, '#f84');
+    });
+
     this.room.onMessage('toxicZonesUpdate', (msg: { zones: Array<{ id: string; x: number; y: number; width: number; height: number; activatesAt: string; active: boolean }> }) => {
       for (const z of msg.zones) {
         if (!this.toxicZones.has(z.id)) {
@@ -792,6 +828,25 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ─── Shooting ─────────────────────────────────────────────────────────────────
+
+  private lastMeleeTime = 0;
+  private _tryMelee(): void {
+    const now = Date.now();
+    if (now - this.lastMeleeTime < 600) return;
+    this.lastMeleeTime = now;
+
+    const facing = this.player.rotation;
+    const vx = Math.cos(facing);
+    const vy = Math.sin(facing);
+    this.room.send('meleeAttack', { vx, vy });
+
+    // Visual slash effect
+    const slashX = this.player.x + vx * 50;
+    const slashY = this.player.y + vy * 50;
+    const slash = this.add.text(slashX, slashY, '⚔', { fontSize: '24px' })
+      .setOrigin(0.5).setDepth(20).setRotation(facing);
+    this.tweens.add({ targets: slash, scaleX: 2, scaleY: 2, alpha: 0, duration: 300, onComplete: () => slash.destroy() });
+  }
 
   private _tryShoot(): void {
     const now = Date.now();

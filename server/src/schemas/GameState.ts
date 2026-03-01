@@ -22,7 +22,9 @@ export class PlayerState extends Schema {
   @type('number') armor: number = 2;
   @type('number') critChance: number = 0.05;
   @type('number') critMult: number = 1.6;
-  @type('number') attackDamage: number = 15;
+  @type('number') attackDamage: number = 22;   // melee base (higher than ranged)
+  @type('boolean') isRanged: boolean = false;   // false = melee (default), true = ranged via craft
+  @type('number') meleeDamage: number = 22;     // kept in sync by CraftingSystem
   @type('number') lifeSteal: number = 0;
   @type('number') downedAt: number = 0;
 }

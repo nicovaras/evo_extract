@@ -20,10 +20,12 @@ const PARTS: PartDefinition[] = [
   { id: 'caparazon_ligero',    name: 'Caparazón Ligero',     slot: 'Torso', tier: 'T1', cost: 55,  statModifiers: { maxHp: 30, armor: 2, speed: -0.5 } },
   { id: 'masa_muscular',       name: 'Masa Muscular',        slot: 'Torso', tier: 'T2', cost: 120, statModifiers: { maxHp: 20, critChance: -0.03 } },
   { id: 'nucleo_regenerativo', name: 'Núcleo Regenerativo',  slot: 'Torso', tier: 'T3', cost: 210, statModifiers: { lifeSteal: 0.05, speed: -0.5 } },
+  // Ranged
+  { id: 'modulo_ranged',       name: 'Módulo de Disparo',    slot: 'Ranged', tier: 'T1', cost: 60,  statModifiers: { damage: -8 } },
 ];
 
-const SLOTS: PartSlot[] = ['Head', 'Arms', 'Legs', 'Torso'];
-const SLOT_LABELS: Record<PartSlot, string> = { Head: '🧠 Cabeza', Arms: '💪 Brazos', Legs: '🦵 Piernas', Torso: '🛡️ Torso' };
+const SLOTS: PartSlot[] = ['Head', 'Arms', 'Legs', 'Torso', 'Ranged'];
+const SLOT_LABELS: Record<PartSlot, string> = { Head: '🧠 Cabeza', Arms: '💪 Brazos', Legs: '🦵 Piernas', Torso: '🛡️ Torso', Ranged: '🔫 Disparo' };
 const TIER_COLORS: Record<string, string> = { T1: '#aaffaa', T2: '#aaaaff', T3: '#ffaaaa' };
 
 const EXTRA_EFFECTS: Record<string, string> = {
@@ -32,6 +34,7 @@ const EXTRA_EFFECTS: Record<string, string> = {
   bulbo_neural:        '  · Interacción -30%',
   masa_muscular:       '  · Carga: pen. 0.85x',
   nucleo_regenerativo: '  · Regen 1HP/s',
+  modulo_ranged:       '  · Activa ataque a distancia',
 };
 
 function formatModifiers(mods: Partial<Record<string, number>>): string {

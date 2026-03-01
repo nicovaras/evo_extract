@@ -115,6 +115,16 @@ export const PARTS_TABLE: PartDefinition[] = [
     // regen 1HP/s handled via equipped parts
     statModifiers: { lifeSteal: 0.05, speed: -0.5 },
   },
+
+  // ── Ranged module (unlocks projectile attack, lowers melee dmg) ──────────
+  {
+    id: 'modulo_ranged',
+    name: 'Módulo de Disparo',
+    slot: 'Ranged',
+    tier: 'T1',
+    cost: 60,
+    statModifiers: { damage: -8 },  // ranged does less damage than melee
+  },
 ];
 
 export function getPartById(id: string): PartDefinition | undefined {

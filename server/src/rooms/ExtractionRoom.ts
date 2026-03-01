@@ -117,16 +117,69 @@ export class ExtractionRoom extends Room<GameState> {
 
     this.onMessage('shoot', (client, data: { vx: number; vy: number }) => {
       const player = this.state.players.get(client.sessionId);
-      if (!player || player.isDown) return;
+      if (!player || player.isDown || !player.isRanged) return;
       const proj = new ProjectileState();
       proj.id = Math.random().toString(36).slice(2, 9);
       proj.x = player.x;
       proj.y = player.y;
       proj.vx = data.vx * 800;
       proj.vy = data.vy * 800;
-      proj.damage = player.attackDamage ?? 12;
+      proj.damage = player.attackDamage;
       proj.ownerId = client.sessionId;
       this.state.playerProjectiles.set(proj.id, proj);
+    });
+
+    // Melee attack — hits all enemies within range
+    const MELEE_RANGE = 80;
+    const MELEE_COOLDOWN_MS = 600;
+    const meleeCooldown = new Map<string, number>();
+    this.onMessage('meleeAttack', (client, data: { vx: number; vy: number }) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || player.isDown || player.isRanged) return;
+      const now = Date.now();
+      if ((now - (meleeCooldown.get(client.sessionId) ?? 0)) < MELEE_COOLDOWN_MS) return;
+      meleeCooldown.set(client.sessionId, now);
+
+      // Hit enemies in a cone in front of the player
+      const hits: string[] = [];
+      this.state.enemies.forEach((enemy, id) => {
+        const dx = enemy.x - player.x;
+        const dy = enemy.y - player.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > MELEE_RANGE) return;
+        // Dot product check: must be roughly in the direction the player is facing
+        if (dist > 0 && data.vx !== 0 || data.vy !== 0) {
+          const dot = (dx / dist) * data.vx + (dy / dist) * data.vy;
+          if (dot < 0.2) return; // outside ~78° cone
+        }
+        const result = this.damageSystem.applyPlayerAttackToEnemy(enemy, player);
+        if (result.killed) hits.push(id);
+        this.broadcast('playerHit', { sessionId: null, damage: player.attackDamage, source: 'melee', hp: enemy.hp, maxHp: enemy.maxHp });
+      });
+
+      // Remove killed enemies
+      hits.forEach(id => this.state.enemies.delete(id));
+
+      client.send('meleeHit', { count: hits.length });
+    });
+
+    // Warp to spawn (panic button — cooldown 30s)
+    const warpCooldown = new Map<string, number>();
+    this.onMessage('warpToSpawn', (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      const now = Date.now();
+      const last = warpCooldown.get(client.sessionId) ?? 0;
+      if (now - last < 30_000) {
+        client.send('warpDenied', { cooldownLeft: Math.ceil((30_000 - (now - last)) / 1000) });
+        return;
+      }
+      warpCooldown.set(client.sessionId, now);
+      const sp = getSpawn('player');
+      player.x = (sp?.x ?? 1000) + Math.floor((Math.random() - 0.5) * 80);
+      player.y = (sp?.y ?? 1000) + Math.floor((Math.random() - 0.5) * 80);
+      player.isDown = false;
+      client.send('warped', {});
     });
 
     // 20 ticks/sec simulation loop

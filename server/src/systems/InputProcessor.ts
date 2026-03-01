@@ -14,41 +14,45 @@ const WORLD_MIN = 0;
 const WORLD_MAX = 2000;
 const PLAYER_HALF = 16; // half of 32px sprite
 
+// Max pixels per substep — smaller than the thinnest wall (30px) to prevent tunneling
+const MAX_STEP_PX = 12;
+
 export class InputProcessor {
-  /**
-   * Process one tick of movement for a player.
-   * @param player  The Colyseus-synced PlayerState
-   * @param input   Latest input payload from client
-   * @param delta   Elapsed ms since last tick
-   */
   process(player: PlayerState, input: InputPayload, delta: number): void {
-    // Downed players can't move or act
     if (player.isDown) return;
 
     let { dx, dy } = input;
 
-    // Normalize diagonal movement
     const len = Math.sqrt(dx * dx + dy * dy);
-    if (len > 1) {
-      dx /= len;
-      dy /= len;
-    }
+    if (len > 1) { dx /= len; dy /= len; }
 
-    const dt = delta / 1000; // convert ms → seconds
+    const dt = delta / 1000;
     const carryMult = player.isCarrying ? CARRY_SPEED_MULT : 1.0;
-    const speed = player.speed * 100 * carryMult; // convert u/s → px/s (1 unit = 100px)
+    const speed = player.speed * 100 * carryMult;
 
-    player.x += dx * speed * dt;
-    player.y += dy * speed * dt;
+    // Total displacement this tick
+    const totalX = dx * speed * dt;
+    const totalY = dy * speed * dt;
+    const totalDist = Math.sqrt(totalX * totalX + totalY * totalY);
 
-    // Clamp to world bounds
-    player.x = Math.max(WORLD_MIN + PLAYER_HALF, Math.min(WORLD_MAX - PLAYER_HALF, player.x));
-    player.y = Math.max(WORLD_MIN + PLAYER_HALF, Math.min(WORLD_MAX - PLAYER_HALF, player.y));
+    // Subdivide movement into steps no larger than MAX_STEP_PX
+    const steps = Math.max(1, Math.ceil(totalDist / MAX_STEP_PX));
+    const stepX = totalX / steps;
+    const stepY = totalY / steps;
 
-    // Resolve wall collisions
-    const resolved = resolveWallCollision(player.x, player.y, 16);
-    player.x = resolved.x;
-    player.y = resolved.y;
+    for (let i = 0; i < steps; i++) {
+      player.x += stepX;
+      player.y += stepY;
+
+      // Clamp to world
+      player.x = Math.max(WORLD_MIN + PLAYER_HALF, Math.min(WORLD_MAX - PLAYER_HALF, player.x));
+      player.y = Math.max(WORLD_MIN + PLAYER_HALF, Math.min(WORLD_MAX - PLAYER_HALF, player.y));
+
+      // Resolve walls each substep
+      const resolved = resolveWallCollision(player.x, player.y, PLAYER_HALF);
+      player.x = resolved.x;
+      player.y = resolved.y;
+    }
 
     player.facing = input.facing;
   }

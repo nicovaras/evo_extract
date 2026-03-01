@@ -24,8 +24,8 @@ export class GameRoom extends Room<GameState> {
     const player = new PlayerState();
     player.id = client.sessionId;
     const sp = getSpawn('player');
-    player.x = sp ? sp.x + Math.floor((Math.random() - 0.5) * 100) : Math.floor(Math.random() * 400);
-    player.y = sp ? sp.y + Math.floor((Math.random() - 0.5) * 100) : Math.floor(Math.random() * 300);
+    player.x = sp ? sp.x : Math.floor(Math.random() * 400);
+    player.y = sp ? sp.y : Math.floor(Math.random() * 300);
     this.state.players.set(client.sessionId, player);
     console.log(`[GameRoom] Player joined: ${client.sessionId}`);
   }

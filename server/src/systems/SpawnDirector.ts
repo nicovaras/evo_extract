@@ -14,28 +14,26 @@ export interface SpawnEvent {
 
 const MAX_ENEMIES = 30;
 
-// Zone perimeter helpers — returns a random point on the border of a zone rect.
-function randomOnPerimeter(xMin: number, xMax: number, yMin: number, yMax: number): { x: number; y: number } {
-  const side = Math.floor(Math.random() * 4);
-  switch (side) {
-    case 0: return { x: xMin + Math.random() * (xMax - xMin), y: yMin };           // top
-    case 1: return { x: xMin + Math.random() * (xMax - xMin), y: yMax };           // bottom
-    case 2: return { x: xMin, y: yMin + Math.random() * (yMax - yMin) };           // left
-    default: return { x: xMax, y: yMin + Math.random() * (yMax - yMin) };          // right
-  }
+// Returns a random point INSIDE a zone rect (with margin to avoid wall edges)
+const SPAWN_MARGIN = 60;
+function randomInsideZone(xMin: number, xMax: number, yMin: number, yMax: number): { x: number; y: number } {
+  return {
+    x: xMin + SPAWN_MARGIN + Math.random() * Math.max(0, (xMax - xMin) - SPAWN_MARGIN * 2),
+    y: yMin + SPAWN_MARGIN + Math.random() * Math.max(0, (yMax - yMin) - SPAWN_MARGIN * 2),
+  };
 }
 
-function randomZoneAPerimeter() {
+function randomZoneA() {
   const b = getZoneBounds('zoneA') ?? { xMin: 0, xMax: 700, yMin: 0, yMax: 700 };
-  return randomOnPerimeter(b.xMin, b.xMax, b.yMin, b.yMax);
+  return randomInsideZone(b.xMin, b.xMax, b.yMin, b.yMax);
 }
-function randomZoneBPerimeter() {
+function randomZoneB() {
   const b = getZoneBounds('zoneB') ?? { xMin: 1300, xMax: 2000, yMin: 1300, yMax: 2000 };
-  return randomOnPerimeter(b.xMin, b.xMax, b.yMin, b.yMax);
+  return randomInsideZone(b.xMin, b.xMax, b.yMin, b.yMax);
 }
 
 function pickZone(): () => { x: number; y: number } {
-  return Math.random() < 0.5 ? randomZoneAPerimeter : randomZoneBPerimeter;
+  return Math.random() < 0.5 ? randomZoneA : randomZoneB;
 }
 
 export class SpawnDirector {

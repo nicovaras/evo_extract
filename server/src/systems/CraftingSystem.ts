@@ -1,11 +1,7 @@
 import { CraftResult, PartDefinition } from '@evo/shared';
+import { inZone } from '@evo/shared/mapData';
 import { GameState, PlayerState } from '../schemas/GameState';
 import { getPartById } from '../config/partsTable';
-
-const HUB_X_MIN = 800;
-const HUB_X_MAX = 1200;
-const HUB_Y_MIN = 800;
-const HUB_Y_MAX = 1200;
 
 /** Minimum ms between craft requests per player (client holds 1s, server adds margin). */
 const CRAFT_RATE_LIMIT_MS = 800;
@@ -23,10 +19,7 @@ export class CraftingSystem {
     }
 
     // 2. Player in Hub zone?
-    if (
-      player.x < HUB_X_MIN || player.x > HUB_X_MAX ||
-      player.y < HUB_Y_MIN || player.y > HUB_Y_MAX
-    ) {
+    if (!inZone('hub', player.x, player.y)) {
       return { success: false, reason: 'Debés estar en el Hub para craftear.' };
     }
 

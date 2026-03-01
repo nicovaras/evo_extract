@@ -1,5 +1,6 @@
 import { Room, Client } from 'colyseus';
 import { GameState, PlayerState, ProjectileState, AdnNode } from '../schemas/GameState';
+import { getSpawn } from '@evo/shared/mapData';
 import { InputProcessor, InputPayload } from '../systems/InputProcessor';
 import { CargoSystem } from '../systems/CargoSystem';
 import { WinLoseChecker } from '../systems/WinLoseChecker';
@@ -141,8 +142,9 @@ export class ExtractionRoom extends Room<GameState> {
   onJoin(client: Client, options: Record<string, unknown>): void {
     const player = new PlayerState();
     player.id = client.sessionId;
-    player.x = 1000 + (Math.random() - 0.5) * 100;
-    player.y = 1000 + (Math.random() - 0.5) * 100;
+    const sp = getSpawn('player');
+    player.x = (sp?.x ?? 1000) + Math.floor((Math.random() - 0.5) * 100);
+    player.y = (sp?.y ?? 1000) + Math.floor((Math.random() - 0.5) * 100);
     this.state.players.set(client.sessionId, player);
 
     // Enviar zonas tóxicas actuales al nuevo jugador

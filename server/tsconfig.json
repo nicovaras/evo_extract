@@ -1,0 +1,18 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "lib": ["ES2020"],
+    "resolveJsonModule": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "paths": {
+      "@evo/shared": ["../shared/src/index.ts"],
+      "@evo/shared/mapData": ["../shared/src/mapData.ts"]
+    }
+  },
+  "include": ["src", "../shared/src"]
+}

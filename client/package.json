@@ -1,0 +1,20 @@
+{
+  "name": "client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "phaser": "^3.80.1",
+    "colyseus.js": "^0.15.0",
+    "@evo/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.20",
+    "vite": "^5.1.5"
+  }
+}

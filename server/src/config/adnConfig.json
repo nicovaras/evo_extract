@@ -1,0 +1,8 @@
+{
+  "zones": {
+    "hub": { "rate": 0.15, "amount": 1, "maxNodes": 5 },
+    "zoneA": { "rate": 0.3, "amount": 1, "maxNodes": 10 },
+    "zoneB": { "rate": 0.2, "amount": 1, "maxNodes": 8 }
+  },
+  "spawnIntervalMs": 3000
+}

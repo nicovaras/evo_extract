@@ -1,0 +1,23 @@
+{
+  "basic": { "hp": 40, "damage": 10, "speed": 4.2, "adnDrop": 4 },
+  "ranged": {
+    "hp": 30,
+    "damage": 8,
+    "speed": 3.8,
+    "adnDrop": 5,
+    "projectileSpeed": 160,
+    "attackCooldown": 1.2,
+    "range": 160
+  },
+  "tank": { "hp": 120, "damage": 14, "speed": 2.8, "adnDrop": 10 },
+  "eliteMultipliers": { "hp": 2.0, "damage": 1.5, "speed": 1.1, "adnDrop": 2 },
+  "miniBossA": { "hp": 400, "damage": 16, "speed": 3.2, "adnDrop": 30, "type": "basic" },
+  "miniBossB": {
+    "hp": 300,
+    "damage": 12,
+    "speed": 2.8,
+    "adnDrop": 15,
+    "cargoReward": 1,
+    "type": "tank"
+  }
+}

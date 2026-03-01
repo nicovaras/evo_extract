@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>EVO-EXTRACT · Map Editor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f0f1a; color: #e0e0f0; font-family: monospace; display: flex; height: 100vh; overflow: hidden; }
+
+  #sidebar {
+    width: 260px; min-width: 260px; background: #16162a; border-right: 1px solid #333;
+    display: flex; flex-direction: column; overflow-y: auto;
+  }
+
+  #sidebar h1 { font-size: 13px; padding: 12px; background: #0d0d20; border-bottom: 1px solid #333; letter-spacing: 2px; color: #7af; }
+
+  .section { padding: 10px; border-bottom: 1px solid #222; }
+  .section h2 { font-size: 10px; color: #888; letter-spacing: 1px; margin-bottom: 8px; text-transform: uppercase; }
+
+  .tool-btn {
+    width: 100%; padding: 6px 10px; margin: 2px 0;
+    background: #222238; border: 1px solid #333; color: #ccc;
+    cursor: pointer; font-family: monospace; font-size: 11px; text-align: left;
+    border-radius: 3px; transition: all .15s;
+  }
+  .tool-btn:hover { background: #2a2a50; border-color: #555; color: #fff; }
+  .tool-btn.active { background: #1a3a6a; border-color: #4af; color: #7cf; }
+
+  .color-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  .color-swatch {
+    width: 28px; height: 28px; border-radius: 3px; cursor: pointer;
+    border: 2px solid transparent; transition: border .1s;
+  }
+  .color-swatch:hover, .color-swatch.active { border-color: #fff; }
+
+  label { font-size: 11px; color: #aaa; display: block; margin-bottom: 2px; }
+  input[type=range] { width: 100%; }
+  input[type=number] { width: 70px; background: #111; border: 1px solid #333; color: #eee; padding: 2px 4px; font-family: monospace; }
+
+  .info-box { font-size: 10px; color: #7af; padding: 4px; background: #0a0a18; border-radius: 2px; line-height: 1.6; }
+
+  .btn {
+    width: 100%; padding: 7px; margin: 3px 0;
+    background: #1a3a1a; border: 1px solid #2a6a2a; color: #6f6;
+    cursor: pointer; font-family: monospace; font-size: 11px; border-radius: 3px;
+    transition: all .15s;
+  }
+  .btn:hover { background: #2a5a2a; color: #9f9; }
+  .btn.danger { background: #3a1a1a; border-color: #6a2a2a; color: #f66; }
+  .btn.danger:hover { background: #5a1a1a; }
+  .btn.export-btn { background: #1a2a4a; border-color: #2a4a8a; color: #6af; }
+  .btn.export-btn:hover { background: #2a3a6a; }
+
+  #output-area {
+    width: 100%; height: 120px; background: #0a0a18; border: 1px solid #333;
+    color: #af8; font-family: monospace; font-size: 9px; padding: 4px; resize: none;
+  }
+
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  #toolbar { background: #12122a; border-bottom: 1px solid #333; padding: 6px 10px; display: flex; align-items: center; gap: 10px; font-size: 11px; }
+  #toolbar span { color: #888; }
+  #toolbar strong { color: #adf; }
+  #canvas-wrap { flex: 1; overflow: auto; background: #080814; }
+  #canvas { cursor: crosshair; display: block; }
+
+  .legend-item { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: 10px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+
+  #grid-toggle { accent-color: #7af; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h1>⚡ MAP EDITOR</h1>
+
+  <!-- TOOLS -->
+  <div class="section">
+    <h2>Herramienta</h2>
+    <button class="tool-btn active" data-tool="wall" onclick="setTool('wall')">🧱 Pintar Pared (drag)</button>
+    <button class="tool-btn" data-tool="erase" onclick="setTool('erase')">🗑 Borrar Pared (drag)</button>
+    <button class="tool-btn" data-tool="zone" onclick="setTool('zone')">🟦 Dibujar Zona</button>
+    <button class="tool-btn" data-tool="spawn" onclick="setTool('spawn')">🎯 Marcar Spawn</button>
+    <button class="tool-btn" data-tool="select" onclick="setTool('select')">↖ Seleccionar</button>
+  </div>
+
+  <!-- WALL SETTINGS -->
+  <div class="section" id="wall-opts">
+    <h2>Config Pared</h2>
+    <label>Ancho celda: <span id="cell-val">30</span>px</label>
+    <input type="range" min="10" max="100" value="30" id="cell-size" oninput="cellSize=+this.value;document.getElementById('cell-val').textContent=this.value">
+  </div>
+
+  <!-- ZONE SETTINGS -->
+  <div class="section" id="zone-opts" style="display:none">
+    <h2>Config Zona</h2>
+    <label>Nombre:</label>
+    <input type="text" id="zone-name" value="nueva_zona" style="width:100%;background:#111;border:1px solid #333;color:#eee;padding:3px;font-family:monospace;margin-bottom:4px">
+    <label>Color:</label>
+    <div class="color-row" id="zone-colors">
+      <div class="color-swatch active" style="background:rgba(100,200,255,0.3)" data-color="rgba(100,200,255,0.3)" onclick="setZoneColor(this)"></div>
+      <div class="color-swatch" style="background:rgba(100,255,100,0.3)" data-color="rgba(100,255,100,0.3)" onclick="setZoneColor(this)"></div>
+      <div class="color-swatch" style="background:rgba(255,150,50,0.3)" data-color="rgba(255,150,50,0.3)" onclick="setZoneColor(this)"></div>
+      <div class="color-swatch" style="background:rgba(255,80,80,0.3)" data-color="rgba(255,80,80,0.3)" onclick="setZoneColor(this)"></div>
+      <div class="color-swatch" style="background:rgba(200,100,255,0.3)" data-color="rgba(200,100,255,0.3)" onclick="setZoneColor(this)"></div>
+    </div>
+  </div>
+
+  <!-- SPAWN SETTINGS -->
+  <div class="section" id="spawn-opts" style="display:none">
+    <h2>Config Spawn</h2>
+    <label>Tipo:</label>
+    <select id="spawn-type" style="width:100%;background:#111;border:1px solid #333;color:#eee;padding:3px;font-family:monospace">
+      <option value="player">👤 Player Spawn</option>
+      <option value="miniBossA">👾 Mini-Boss A</option>
+      <option value="miniBossB">👾 Mini-Boss B</option>
+      <option value="cargo">📦 Cargo</option>
+      <option value="adn">🧬 ADN Node</option>
+    </select>
+  </div>
+
+  <!-- VIEW -->
+  <div class="section">
+    <h2>Vista</h2>
+    <label><input type="checkbox" id="grid-toggle" checked onchange="showGrid=this.checked;render()"> Mostrar grid</label>
+    <label><input type="checkbox" id="zones-toggle" checked onchange="showZones=this.checked;render()"> Mostrar zonas</label>
+    <label><input type="checkbox" id="spawns-toggle" checked onchange="showSpawns=this.checked;render()"> Mostrar spawns</label>
+    <br>
+    <label>Zoom: <span id="zoom-val">50</span>%</label>
+    <input type="range" min="10" max="200" value="50" id="zoom-range" oninput="setZoom(+this.value)">
+  </div>
+
+  <!-- LEGEND -->
+  <div class="section">
+    <h2>Leyenda</h2>
+    <div class="legend-item"><div class="legend-dot" style="background:rgba(100,200,255,0.4)"></div> Zona A (noroeste)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:rgba(100,255,150,0.4)"></div> Hub (centro)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:rgba(255,150,50,0.4)"></div> Zona B (sureste)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:rgba(255,80,80,0.4)"></div> Extracción (NE)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#666"></div> Pared</div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="section">
+    <h2>Acciones</h2>
+    <button class="btn" onclick="loadDefaults()">↺ Cargar mapa actual</button>
+    <button class="btn" onclick="clearWalls()">🗑 Borrar todas las paredes</button>
+    <button class="btn" onclick="clearAll()">💥 Borrar todo</button>
+    <button class="btn danger" onclick="undoLast()">⟵ Deshacer última</button>
+  </div>
+
+  <!-- CURSOR INFO -->
+  <div class="section">
+    <h2>Cursor</h2>
+    <div class="info-box" id="cursor-info">x: — y: —</div>
+  </div>
+
+  <!-- EXPORT -->
+  <div class="section">
+    <h2>Exportar</h2>
+    <button class="btn export-btn" onclick="exportWalls()">📋 Exportar walls.ts</button>
+    <button class="btn export-btn" onclick="exportZones()">📋 Exportar zonas</button>
+    <button class="btn export-btn" onclick="exportAll()">💾 Exportar JSON completo</button>
+    <br>
+    <textarea id="output-area" readonly placeholder="Código exportado aparece aquí..."></textarea>
+    <button class="btn" onclick="copyOutput()">📋 Copiar</button>
+    <br>
+    <button class="btn" onclick="document.getElementById('json-file-input').click()">📂 Cargar JSON</button>
+    <input type="file" id="json-file-input" accept=".json" style="display:none" onchange="loadFromFile(this)">
+  </div>
+</div>
+
+<!-- MAIN CANVAS -->
+<div id="main">
+  <div id="toolbar">
+    <span>Herramienta:</span> <strong id="tb-tool">wall</strong>
+    &nbsp;|&nbsp;
+    <span>Paredes:</span> <strong id="tb-walls">0</strong>
+    &nbsp;|&nbsp;
+    <span>Zonas:</span> <strong id="tb-zones">0</strong>
+    &nbsp;|&nbsp;
+    <span>Spawns:</span> <strong id="tb-spawns">0</strong>
+    &nbsp;|&nbsp;
+    <span>Selección:</span> <strong id="tb-sel">ninguna</strong>
+  </div>
+  <div id="canvas-wrap">
+    <canvas id="canvas"></canvas>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+const MAP_W = 2000, MAP_H = 2000;
+let zoom = 0.5;
+let cellSize = 30;
+let tool = 'wall';
+let showGrid = true, showZones = true, showSpawns = true;
+
+let walls = [];      // [{x,y,w,h}]
+let zones = [];      // [{name,x,y,w,h,color}]
+let spawns = [];     // [{type,x,y}]
+let history = [];    // for undo
+
+let isDragging = false;
+let dragStart = null;
+let dragRect = null;
+let zoneColor = 'rgba(100,200,255,0.3)';
+let selectedIdx = null;
+let selectedType = null; // 'wall'|'zone'|'spawn'
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// ─────────────────────────────────────────────
+// DEFAULT MAP DATA (current game map)
+// ─────────────────────────────────────────────
+function loadDefaults() {
+  history.push({ walls: JSON.parse(JSON.stringify(walls)), zones: JSON.parse(JSON.stringify(zones)), spawns: JSON.parse(JSON.stringify(spawns)) });
+
+  walls = [
+    // BLOQUE CENTRAL
+    { x: 1200, y: 600, w: 200, h: 30 },
+    { x: 1200, y: 600, w: 30, h: 200 },
+    // CORREDOR HUB ↔ ZONA A
+    { x: 0, y: 700, w: 700, h: 30 },
+    { x: 0, y: 900, w: 700, h: 30 },
+    { x: 700, y: 850, w: 100, h: 30 },
+    // CORREDOR HUB ↔ ZONA B
+    { x: 800, y: 1200, w: 400, h: 30 },
+    { x: 1350, y: 1200, w: 650, h: 30 },
+    // CORREDOR ZONA A → EXTRACCIÓN
+    { x: 700, y: 650, w: 500, h: 30 },
+    { x: 1200, y: 400, w: 30, h: 250 },
+    // CORREDOR ZONA B → EXTRACCIÓN
+    { x: 1650, y: 600, w: 30, h: 700 },
+    // OBSTÁCULOS — ZONA A
+    { x: 100, y: 200, w: 100, h: 30 },
+    { x: 350, y: 100, w: 30, h: 150 },
+    { x: 200, y: 450, w: 120, h: 30 },
+    { x: 500, y: 350, w: 30, h: 100 },
+    // OBSTÁCULOS — ZONA B
+    { x: 1450, y: 1450, w: 100, h: 30 },
+    { x: 1700, y: 1600, w: 30, h: 120 },
+    { x: 1550, y: 1750, w: 150, h: 30 },
+    { x: 1850, y: 1400, w: 30, h: 100 },
+    // OBSTÁCULOS — HUB
+    { x: 850, y: 900, w: 80, h: 30 },
+    { x: 1080, y: 1050, w: 80, h: 30 },
+    // OBSTÁCULOS — EXTRACCIÓN
+    { x: 1500, y: 150, w: 30, h: 150 },
+    { x: 1750, y: 300, w: 120, h: 30 },
+  ];
+
+  zones = [
+    { name: 'zoneA',      x: 0,    y: 0,    w: 700,  h: 700,  color: 'rgba(100,200,255,0.15)' },
+    { name: 'hub',        x: 800,  y: 800,  w: 400,  h: 400,  color: 'rgba(100,255,150,0.15)' },
+    { name: 'zoneB',      x: 1300, y: 1300, w: 700,  h: 700,  color: 'rgba(255,150,50,0.15)'  },
+    { name: 'extraction', x: 1400, y: 0,    w: 600,  h: 600,  color: 'rgba(255,80,80,0.15)'   },
+  ];
+
+  spawns = [
+    { type: 'player',    x: 1000, y: 1000 },
+    { type: 'miniBossA', x: 175,  y: 175  },
+    { type: 'miniBossB', x: 1825, y: 1825 },
+  ];
+
+  render(); updateStats();
+}
+
+// ─────────────────────────────────────────────
+// CANVAS SETUP
+// ─────────────────────────────────────────────
+function setZoom(v) {
+  zoom = v / 100;
+  document.getElementById('zoom-val').textContent = v;
+  canvas.width  = Math.round(MAP_W * zoom);
+  canvas.height = Math.round(MAP_H * zoom);
+  render();
+}
+
+function setTool(t) {
+  tool = t;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === t));
+  document.getElementById('tb-tool').textContent = t;
+  document.getElementById('wall-opts').style.display  = (t === 'wall' || t === 'erase') ? '' : 'none';
+  document.getElementById('zone-opts').style.display  = t === 'zone'  ? '' : 'none';
+  document.getElementById('spawn-opts').style.display = t === 'spawn' ? '' : 'none';
+}
+
+function setZoneColor(el) {
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  zoneColor = el.dataset.color;
+}
+
+// ─────────────────────────────────────────────
+// COORD HELPERS
+// ─────────────────────────────────────────────
+function canvasToMap(cx, cy) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: Math.round((cx - rect.left) / zoom), y: Math.round((cy - rect.top) / zoom) };
+}
+
+function snapTo(v, snap) { return Math.round(v / snap) * snap; }
+
+// ─────────────────────────────────────────────
+// EVENTS
+// ─────────────────────────────────────────────
+canvas.addEventListener('mousemove', e => {
+  const pos = canvasToMap(e.clientX, e.clientY);
+  document.getElementById('cursor-info').textContent = `x: ${pos.x}  y: ${pos.y}`;
+
+  if (!isDragging) return;
+
+  if (tool === 'wall' || tool === 'erase' || tool === 'zone') {
+    const x = Math.min(dragStart.x, pos.x);
+    const y = Math.min(dragStart.y, pos.y);
+    const w = Math.abs(pos.x - dragStart.x);
+    const h = Math.abs(pos.y - dragStart.y);
+    dragRect = { x, y, w: Math.max(w, 1), h: Math.max(h, 1) };
+  }
+
+  if (tool === 'wall') {
+    // Live paint as you drag: snap to grid cells
+    const sx = snapTo(Math.min(dragStart.x, pos.x), cellSize);
+    const sy = snapTo(Math.min(dragStart.y, pos.y), cellSize);
+    const ex = snapTo(Math.max(dragStart.x, pos.x), cellSize);
+    const ey = snapTo(Math.max(dragStart.y, pos.y), cellSize);
+    dragRect = { x: sx, y: sy, w: Math.max(ex - sx, cellSize), h: Math.max(ey - sy, cellSize) };
+  }
+
+  render();
+});
+
+canvas.addEventListener('mousedown', e => {
+  const pos = canvasToMap(e.clientX, e.clientY);
+  isDragging = true;
+  dragStart = { x: pos.x, y: pos.y };
+  dragRect = null;
+
+  if (tool === 'select') {
+    selectAt(pos.x, pos.y);
+  }
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (!isDragging) return;
+  isDragging = false;
+  const pos = canvasToMap(e.clientX, e.clientY);
+
+  if (tool === 'wall' && dragRect) {
+    const r = {
+      x: snapTo(Math.min(dragStart.x, pos.x), cellSize),
+      y: snapTo(Math.min(dragStart.y, pos.y), cellSize),
+      w: 0, h: 0
+    };
+    r.w = Math.max(snapTo(Math.abs(pos.x - dragStart.x), cellSize), cellSize);
+    r.h = Math.max(snapTo(Math.abs(pos.y - dragStart.y), cellSize), cellSize);
+    history.push({ walls: JSON.parse(JSON.stringify(walls)) });
+    walls.push(r);
+  }
+
+  if (tool === 'erase' && dragRect) {
+    history.push({ walls: JSON.parse(JSON.stringify(walls)) });
+    const er = dragRect;
+    walls = walls.filter(w => !rectsOverlap(w, er));
+  }
+
+  if (tool === 'zone' && dragRect) {
+    const name = document.getElementById('zone-name').value || `zona_${zones.length+1}`;
+    history.push({ zones: JSON.parse(JSON.stringify(zones)) });
+    zones.push({ name, x: dragRect.x, y: dragRect.y, w: dragRect.w, h: dragRect.h, color: zoneColor });
+  }
+
+  if (tool === 'spawn') {
+    const type = document.getElementById('spawn-type').value;
+    history.push({ spawns: JSON.parse(JSON.stringify(spawns)) });
+    spawns.push({ type, x: pos.x, y: pos.y });
+  }
+
+  dragRect = null;
+  render(); updateStats();
+});
+
+canvas.addEventListener('mouseleave', () => {
+  if (isDragging) { isDragging = false; dragRect = null; render(); }
+});
+
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function selectAt(mx, my) {
+  selectedIdx = null; selectedType = null;
+  for (let i = walls.length - 1; i >= 0; i--) {
+    const w = walls[i];
+    if (mx >= w.x && mx <= w.x + w.w && my >= w.y && my <= w.y + w.h) {
+      selectedIdx = i; selectedType = 'wall';
+      document.getElementById('tb-sel').textContent = `pared[${i}] (${w.x},${w.y}) ${w.w}x${w.h}`;
+      render(); return;
+    }
+  }
+  for (let i = zones.length - 1; i >= 0; i--) {
+    const z = zones[i];
+    if (mx >= z.x && mx <= z.x + z.w && my >= z.y && my <= z.y + z.h) {
+      selectedIdx = i; selectedType = 'zone';
+      document.getElementById('tb-sel').textContent = `zona "${z.name}" (${z.x},${z.y}) ${z.w}x${z.h}`;
+      render(); return;
+    }
+  }
+  document.getElementById('tb-sel').textContent = 'ninguna';
+  render();
+}
+
+// DELETE key to remove selected
+window.addEventListener('keydown', e => {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIdx !== null) {
+    if (selectedType === 'wall') walls.splice(selectedIdx, 1);
+    if (selectedType === 'zone') zones.splice(selectedIdx, 1);
+    if (selectedType === 'spawn') spawns.splice(selectedIdx, 1);
+    selectedIdx = null; selectedType = null;
+    document.getElementById('tb-sel').textContent = 'ninguna';
+    render(); updateStats();
+  }
+});
+
+// ─────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────
+function render() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#0a0a16';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  if (showGrid) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 0.5;
+    const step = 100 * zoom;
+    for (let x = 0; x <= W; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y <= H; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    // Fine grid
+    const fine = 50 * zoom;
+    ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+    for (let x = 0; x <= W; x += fine) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y <= H; y += fine) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  }
+
+  // Zones
+  if (showZones) {
+    zones.forEach((z, i) => {
+      ctx.fillStyle = z.color;
+      ctx.fillRect(z.x * zoom, z.y * zoom, z.w * zoom, z.h * zoom);
+      ctx.strokeStyle = z.color.replace(/[\d.]+\)$/, '0.8)');
+      ctx.lineWidth = selectedIdx === i && selectedType === 'zone' ? 2 : 1;
+      ctx.strokeRect(z.x * zoom, z.y * zoom, z.w * zoom, z.h * zoom);
+      // Label
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.font = `${Math.max(9, 12 * zoom)}px monospace`;
+      ctx.fillText(z.name, (z.x + 4) * zoom, (z.y + 14) * zoom);
+      // Coords label
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.font = `${Math.max(7, 9 * zoom)}px monospace`;
+      ctx.fillText(`${z.x},${z.y} ${z.w}×${z.h}`, (z.x + 4) * zoom, (z.y + 26) * zoom);
+    });
+  }
+
+  // Walls
+  walls.forEach((w, i) => {
+    const sel = selectedIdx === i && selectedType === 'wall';
+    ctx.fillStyle = sel ? '#8888ff' : '#5566aa';
+    ctx.fillRect(w.x * zoom, w.y * zoom, w.w * zoom, w.h * zoom);
+    ctx.strokeStyle = sel ? '#ccddff' : '#778';
+    ctx.lineWidth = sel ? 2 : 0.5;
+    ctx.strokeRect(w.x * zoom, w.y * zoom, w.w * zoom, w.h * zoom);
+  });
+
+  // Spawns
+  if (showSpawns) {
+    const spawnColors = { player: '#0f0', miniBossA: '#f80', miniBossB: '#f40', cargo: '#ff0', adn: '#0ff' };
+    const spawnIcons  = { player: '👤', miniBossA: '👾', miniBossB: '👹', cargo: '📦', adn: '🧬' };
+    spawns.forEach((s, i) => {
+      const color = spawnColors[s.type] || '#fff';
+      const r = 8 * zoom;
+      ctx.beginPath();
+      ctx.arc(s.x * zoom, s.y * zoom, r, 0, Math.PI * 2);
+      ctx.fillStyle = color + '44';
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.font = `${Math.max(8, 11 * zoom)}px monospace`;
+      ctx.fillText(s.type, (s.x + 10) * zoom, (s.y + 4) * zoom);
+    });
+  }
+
+  // Drag preview
+  if (isDragging && dragRect) {
+    if (tool === 'wall') {
+      ctx.fillStyle = 'rgba(100,120,220,0.5)';
+      ctx.fillRect(dragRect.x * zoom, dragRect.y * zoom, dragRect.w * zoom, dragRect.h * zoom);
+      ctx.strokeStyle = '#88aaff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(dragRect.x * zoom, dragRect.y * zoom, dragRect.w * zoom, dragRect.h * zoom);
+    } else if (tool === 'erase') {
+      ctx.fillStyle = 'rgba(255,60,60,0.2)';
+      ctx.fillRect(dragRect.x * zoom, dragRect.y * zoom, dragRect.w * zoom, dragRect.h * zoom);
+      ctx.strokeStyle = '#ff4444';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4,4]);
+      ctx.strokeRect(dragRect.x * zoom, dragRect.y * zoom, dragRect.w * zoom, dragRect.h * zoom);
+      ctx.setLineDash([]);
+    } else if (tool === 'zone') {
+      ctx.fillStyle = zoneColor;
+      ctx.fillRect(dragRect.x * zoom, dragRect.y * zoom, dragRect.w * zoom, dragRect.h * zoom);
+      ctx.strokeStyle = '#aaf';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6,3]);
+      ctx.strokeRect(dragRect.x * zoom, dragRect.y * zoom, dragRect.w * zoom, dragRect.h * zoom);
+      ctx.setLineDash([]);
+      // size label
+      ctx.fillStyle = '#fff';
+      ctx.font = '10px monospace';
+      ctx.fillText(`${dragRect.w}×${dragRect.h}`, dragRect.x * zoom + 4, dragRect.y * zoom + 14);
+    }
+  }
+
+  // Map border
+  ctx.strokeStyle = 'rgba(100,100,255,0.4)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(0, 0, MAP_W * zoom, MAP_H * zoom);
+
+  // Ruler numbers on edges
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  ctx.font = '8px monospace';
+  for (let x = 0; x <= MAP_W; x += 200) {
+    ctx.fillText(x, x * zoom + 1, 10);
+  }
+  for (let y = 200; y <= MAP_H; y += 200) {
+    ctx.fillText(y, 1, y * zoom - 2);
+  }
+}
+
+function updateStats() {
+  document.getElementById('tb-walls').textContent = walls.length;
+  document.getElementById('tb-zones').textContent = zones.length;
+  document.getElementById('tb-spawns').textContent = spawns.length;
+}
+
+// ─────────────────────────────────────────────
+// CLEAR / UNDO
+// ─────────────────────────────────────────────
+function clearWalls() { history.push({ walls: JSON.parse(JSON.stringify(walls)) }); walls = []; render(); updateStats(); }
+function clearAll()   { history.push({ walls: JSON.parse(JSON.stringify(walls)), zones: JSON.parse(JSON.stringify(zones)), spawns: JSON.parse(JSON.stringify(spawns)) }); walls = []; zones = []; spawns = []; render(); updateStats(); }
+
+function undoLast() {
+  const last = history.pop();
+  if (!last) return;
+  if (last.walls)  walls  = last.walls;
+  if (last.zones)  zones  = last.zones;
+  if (last.spawns) spawns = last.spawns;
+  render(); updateStats();
+}
+
+// ─────────────────────────────────────────────
+// EXPORT
+// ─────────────────────────────────────────────
+function exportWalls() {
+  let out = `export const WALLS = [\n`;
+  walls.forEach(w => {
+    out += `  { x: ${w.x}, y: ${w.y}, w: ${w.w}, h: ${w.h} },\n`;
+  });
+  out += `];\n`;
+  document.getElementById('output-area').value = out;
+}
+
+function exportZones() {
+  let out = `// Zone bounds (for server systems)\n`;
+  zones.forEach(z => {
+    out += `// ${z.name}: x=${z.x} y=${z.y} w=${z.w} h=${z.h}\n`;
+    out += `// xMin=${z.x} xMax=${z.x+z.w} yMin=${z.y} yMax=${z.y+z.h}\n\n`;
+  });
+  document.getElementById('output-area').value = out;
+}
+
+function exportAll() {
+  const data = { walls, zones, spawns };
+  document.getElementById('output-area').value = JSON.stringify(data, null, 2);
+}
+
+function loadFromFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      history.push({ walls: JSON.parse(JSON.stringify(walls)), zones: JSON.parse(JSON.stringify(zones)), spawns: JSON.parse(JSON.stringify(spawns)) });
+      if (Array.isArray(data.walls))  walls  = data.walls;
+      if (Array.isArray(data.zones))  zones  = data.zones;
+      if (Array.isArray(data.spawns)) spawns = data.spawns;
+      render(); updateStats();
+      document.getElementById('output-area').value = `✅ Mapa cargado desde "${file.name}"\nParedes: ${walls.length} | Zonas: ${zones.length} | Spawns: ${spawns.length}`;
+    } catch(err) {
+      document.getElementById('output-area').value = `❌ Error al leer JSON:\n${err.message}`;
+    }
+  };
+  reader.readAsText(file);
+  input.value = ''; // reset so same file can be reloaded
+}
+
+function copyOutput() {
+  const el = document.getElementById('output-area');
+  el.select();
+  document.execCommand('copy');
+  el.blur();
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+setZoom(50);
+loadDefaults();
+setTool('wall');
+</script>
+</body>
+</html>

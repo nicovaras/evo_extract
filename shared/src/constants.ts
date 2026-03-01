@@ -1,0 +1,9 @@
+export const CARGO_COST = 30;
+export const CRAFT_TIME = 1.0;
+export const SEAL_TIME = 1.3;
+export const REVIVE_TIME = 5.0;
+export const CARRY_SPEED_MULT = 0.45;
+export const WIN_CARGO_COUNT = 8;
+export const EXTRACTION_COUNTDOWN = 60;
+export const WIPE_TIMEOUT = 3;
+export const RUN_TIME_LIMIT = 780; // 13 minutes in seconds

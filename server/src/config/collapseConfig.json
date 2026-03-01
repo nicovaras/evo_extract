@@ -1,0 +1,11 @@
+{
+  "zones": [
+    { "id": "toxic_a1", "x": 100, "y": 100, "width": 300, "height": 200, "activatesAt": "mid" },
+    { "id": "toxic_a2", "x": 400, "y": 300, "width": 200, "height": 300, "activatesAt": "mid" },
+    { "id": "toxic_b1", "x": 1500, "y": 1400, "width": 300, "height": 200, "activatesAt": "mid" },
+    { "id": "toxic_b2", "x": 1300, "y": 1600, "width": 200, "height": 300, "activatesAt": "late" },
+    { "id": "toxic_b3", "x": 1600, "y": 1700, "width": 300, "height": 200, "activatesAt": "late" },
+    { "id": "toxic_a3", "x": 200, "y": 500, "width": 250, "height": 150, "activatesAt": "late" }
+  ],
+  "damagePerSecond": 8
+}

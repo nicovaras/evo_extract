@@ -1,0 +1,36 @@
+version: '3.9'
+
+services:
+  server:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install -g pnpm && pnpm install && pnpm dev"
+    volumes:
+      - ./server:/app/server
+      - ./package.json:/app/package.json
+      - server_modules:/app/server/node_modules
+    environment:
+      - PORT=${PORT:-2567}
+      - ROOM_MAX_CLIENTS=${ROOM_MAX_CLIENTS:-4}
+      - CLIENT_URL=${CLIENT_URL:-http://localhost:5173}
+    ports:
+      - '${PORT:-2567}:${PORT:-2567}'
+    env_file:
+      - .env
+
+  client:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install -g pnpm && pnpm install && pnpm dev --host"
+    volumes:
+      - ./client:/app/client
+      - ./package.json:/app/package.json
+      - client_modules:/app/client/node_modules
+    ports:
+      - '5173:5173'
+    depends_on:
+      - server
+
+volumes:
+  server_modules:
+  client_modules:

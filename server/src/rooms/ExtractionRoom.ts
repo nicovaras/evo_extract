@@ -1,0 +1,404 @@
+import { Room, Client } from 'colyseus';
+import { GameState, PlayerState, ProjectileState, AdnNode } from '../schemas/GameState';
+import { InputProcessor, InputPayload } from '../systems/InputProcessor';
+import { CargoSystem } from '../systems/CargoSystem';
+import { WinLoseChecker } from '../systems/WinLoseChecker';
+import { DamageSystem } from '../systems/DamageSystem';
+import { ReviveSystem } from '../systems/ReviveSystem';
+import { SpawnDirector } from '../systems/SpawnDirector';
+import { EnemyManager } from '../systems/EnemyManager';
+import { AdnSpawner } from '../systems/AdnSpawner';
+import { AdnCollector } from '../systems/AdnCollector';
+import { CollapseSystem } from '../systems/CollapseSystem';
+import { tickBasicBehavior } from '../systems/behaviors/BasicBehavior';
+import { tickRangedBehavior } from '../systems/behaviors/RangedBehavior';
+import { tickTankBehavior } from '../systems/behaviors/TankBehavior';
+import { separateEnemies } from '../systems/EnemySeparation';
+import { EXTRACTION_COUNTDOWN, WIN_CARGO_COUNT, WALLS } from '@evo/shared';
+import { CraftingSystem } from '../systems/CraftingSystem';
+
+const PROJECTILE_HIT_RANGE = 16;
+const WORLD_BOUNDS = { min: 0, max: 2000 };
+
+export class ExtractionRoom extends Room<GameState> {
+  maxClients = parseInt(process.env.ROOM_MAX_CLIENTS ?? '4', 10);
+
+  private inputProcessor = new InputProcessor();
+  private cargoSystem = new CargoSystem();
+  private craftingSystem = new CraftingSystem();
+  private winLoseChecker = new WinLoseChecker();
+  private damageSystem!: DamageSystem;
+  private reviveSystem!: ReviveSystem;
+  private enemyManager!: EnemyManager;
+  private spawnDirector!: SpawnDirector;
+  private adnSpawner!: AdnSpawner;
+  private adnCollector!: AdnCollector;
+  private collapseSystem!: CollapseSystem;
+  private lastInputs = new Map<string, InputPayload>();
+  private lastTickTime = Date.now();
+
+  /** seconds accumulator for extraction countdown */
+  private extractionAccum = 0;
+  /** whether gameOver has been broadcast already */
+  private gameOverSent = false;
+
+  onCreate(options: Record<string, unknown>): void {
+    this.setState(new GameState());
+
+    // Init systems that need room reference
+    this.damageSystem = new DamageSystem(this);
+    this.reviveSystem = new ReviveSystem(this);  // registers startRevive/cancelRevive messages
+
+    // Init spawn/enemy systems
+    this.enemyManager = new EnemyManager(this.state);
+    this.spawnDirector = new SpawnDirector(this.enemyManager);
+
+    // Init ADN systems (AdnSpawner uses setInterval internally)
+    this.adnSpawner = new AdnSpawner();
+    this.adnSpawner.start(this.state.adnNodes, this.state);
+    this.adnCollector = new AdnCollector(this);
+
+    // Init collapse system
+    this.collapseSystem = new CollapseSystem();
+    this.collapseSystem.init(this.state, this);
+
+    // ── Input ───────────────────────────────────────────────────────────────
+    // ── Ready system ────────────────────────────────────────────────────────
+    this.onMessage('setReady', (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      player.isReady = true;
+      this._checkAllReady();
+    });
+
+    this.onMessage<InputPayload>('input', (client, payload) => {
+      this.lastInputs.set(client.sessionId, payload);
+    });
+
+    // ── Craft part ──────────────────────────────────────────────────────────
+    this.onMessage('craft', (client, data: { partId: string }) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      try {
+        const result = this.craftingSystem.craft(player, data.partId, this.state);
+        client.send('craftResult', result);
+      } catch (err) {
+        console.error('[craft] error:', err);
+        client.send('craftResult', { success: false, reason: 'Error interno' });
+      }
+    });
+
+    // ── Seal Cargo (Tarea 23) ───────────────────────────────────────────────
+    this.onMessage('sealCargo', (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+
+      const result = this.cargoSystem.sealCargo(player, this.state);
+      client.send('sealResult', {
+        success: result.success,
+        cargoId: result.cargoId,
+        reason: result.reason,
+      });
+    });
+
+    // ── Deliver Cargo (Tarea 25) ────────────────────────────────────────────
+    this.onMessage('deliver', (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+
+      const result = this.cargoSystem.deliverCargo(player, this.state);
+      if (result.success) {
+        // Check win condition immediately after delivery
+        this._checkExtractionWin();
+      }
+      client.send('deliverResult', { success: result.success, reason: result.reason });
+    });
+
+    this.onMessage('shoot', (client, data: { vx: number; vy: number }) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || player.isDown) return;
+      const proj = new ProjectileState();
+      proj.id = Math.random().toString(36).slice(2, 9);
+      proj.x = player.x;
+      proj.y = player.y;
+      proj.vx = data.vx * 800;
+      proj.vy = data.vy * 800;
+      proj.damage = player.attackDamage ?? 12;
+      proj.ownerId = client.sessionId;
+      this.state.playerProjectiles.set(proj.id, proj);
+    });
+
+    // 20 ticks/sec simulation loop
+    this.setSimulationInterval((deltaTime) => {
+      this._tick(deltaTime);
+    }, 50);
+
+    console.log(
+      `[ExtractionRoom] onCreate | roomId=${this.roomId} | maxClients=${this.maxClients} | options=${JSON.stringify(options)}`
+    );
+  }
+
+  onJoin(client: Client, options: Record<string, unknown>): void {
+    const player = new PlayerState();
+    player.id = client.sessionId;
+    player.x = 1000 + (Math.random() - 0.5) * 100;
+    player.y = 1000 + (Math.random() - 0.5) * 100;
+    this.state.players.set(client.sessionId, player);
+
+    // Enviar zonas tóxicas actuales al nuevo jugador
+    const zones = Array.from(this.state.toxicZones.values()).map(z => ({
+      id: z.id, x: z.x, y: z.y, width: z.width, height: z.height, active: z.active
+    }));
+    client.send('toxicZonesUpdate', { zones });
+
+    const total = this.state.players.size;
+    console.log(
+      `[ExtractionRoom] onJoin  | timestamp=${new Date().toISOString()} | roomId=${this.roomId} | sessionId=${client.sessionId} | totalPlayers=${total}`
+    );
+  }
+
+  onLeave(client: Client, consented: boolean): void {
+    // Drop cargo if player was carrying
+    const player = this.state.players.get(client.sessionId);
+    if (player?.isCarrying) {
+      this.state.cargo.forEach((c) => {
+        if (c.carrierId === client.sessionId) {
+          c.carrierId = '';
+        }
+      });
+      player.isCarrying = false;
+    }
+
+    this.state.players.delete(client.sessionId);
+    this.lastInputs.delete(client.sessionId);
+
+    const total = this.state.players.size;
+    console.log(
+      `[ExtractionRoom] onLeave | timestamp=${new Date().toISOString()} | roomId=${this.roomId} | sessionId=${client.sessionId} | consented=${consented} | totalPlayers=${total}`
+    );
+  }
+
+  onDispose(): void {
+    this.adnSpawner?.stop();
+    console.log(`[ExtractionRoom] onDispose | roomId=${this.roomId}`);
+  }
+
+  private _tick(delta: number): void {
+    if (this.gameOverSent) return;
+
+    const dt = delta / 1000;
+
+    // Update run timer
+    this.state.timers.runTime += dt;
+
+    // Actualizar phase según runTime
+    const rt = this.state.timers.runTime;
+    const newPhase = rt < 240 ? 'early' : rt < 510 ? 'mid' : 'late';
+    if (newPhase !== this.state.timers.phase) {
+      this.state.timers.phase = newPhase;
+      console.log(`[Phase] → ${newPhase} at ${Math.floor(rt)}s`);
+    }
+
+    // Process player inputs
+    this.state.players.forEach((player, sessionId) => {
+      const input = this.lastInputs.get(sessionId);
+      if (input) {
+        this.inputProcessor.process(player, input, delta);
+      }
+    });
+
+    // Update cargo positions / handle drops
+    this.cargoSystem.tick(this.state);
+
+    // ── Spawn Director (only after game starts) ────────────────────────────
+    if (this.state.gameStarted) {
+      this.spawnDirector.tick(this.state, delta);
+    }
+
+    // ── ADN Collector (only after game starts) ─────────────────────────────
+    if (this.state.gameStarted) {
+      this.adnCollector.tick(this.state, this.state.players, delta / 1000);
+    }
+
+    // ── Collapse System (only after game starts) ───────────────────────────
+    if (this.state.gameStarted) {
+      this.collapseSystem.tick(this.state, this, delta);
+    }
+
+    // ── Enemy behaviors ────────────────────────────────────────────────────
+    this.state.enemies.forEach((enemy) => {
+      switch (enemy.type) {
+        case 'basic':
+          tickBasicBehavior(enemy, this.state, dt, this.damageSystem);
+          break;
+        case 'ranged':
+          tickRangedBehavior(enemy, this.state, dt, this.damageSystem);
+          break;
+        case 'tank':
+          tickTankBehavior(enemy, this.state, dt, this.damageSystem);
+          break;
+        case 'elite': {
+          // Elite uses the same behavior as its base type stored in a sub-field,
+          // defaulting to basic if not specified
+          tickBasicBehavior(enemy, this.state, dt, this.damageSystem);
+          break;
+        }
+        default:
+          break;
+      }
+    });
+
+    // ── Enemy separation ───────────────────────────────────────────────────
+    separateEnemies(this.state);
+
+
+    // ── Projectile updates ─────────────────────────────────────────────────
+    const toRemove: string[] = [];
+
+    this.state.projectiles.forEach((proj) => {
+      proj.x += proj.vx * dt;
+      proj.y += proj.vy * dt;
+
+      // Out of bounds
+      if (
+        proj.x < WORLD_BOUNDS.min || proj.x > WORLD_BOUNDS.max ||
+        proj.y < WORLD_BOUNDS.min || proj.y > WORLD_BOUNDS.max
+      ) {
+        toRemove.push(proj.id);
+        return;
+      }
+
+      // Wall collision
+      if (_projHitsWall(proj.x, proj.y)) { toRemove.push(proj.id); return; }
+
+      // Collision with players
+      this.state.players.forEach((player) => {
+        if (player.isDown) return;
+        const dx = proj.x - player.x;
+        const dy = proj.y - player.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+
+        if (d < PROJECTILE_HIT_RANGE) {
+          this.damageSystem.applyDamageToPlayer(player, proj.damage);
+          toRemove.push(proj.id);
+        }
+      });
+    });
+
+    toRemove.forEach((id) => this.state.projectiles.delete(id));
+
+    // Player projectiles → hit enemies
+    const playerProjToRemove: string[] = [];
+    this.state.playerProjectiles.forEach((proj) => {
+      proj.x += proj.vx * dt;
+      proj.y += proj.vy * dt;
+      if (proj.x < 0 || proj.x > 2000 || proj.y < 0 || proj.y > 2000) {
+        playerProjToRemove.push(proj.id);
+        return;
+      }
+      if (_projHitsWall(proj.x, proj.y)) { playerProjToRemove.push(proj.id); return; }
+      this.state.enemies.forEach((enemy, enemyId) => {
+        const dx = proj.x - enemy.x;
+        const dy = proj.y - enemy.y;
+        if (Math.sqrt(dx*dx + dy*dy) < 20) {
+          const shooter = this.state.players.get(proj.ownerId);
+          if (shooter) {
+            const result = this.damageSystem.applyPlayerAttackToEnemy(enemy, shooter);
+            if (result.killed) {
+              // Spawn ADN nodes at enemy position
+              const dropCount = enemy.adnDrop ?? 4;
+              for (let i = 0; i < dropCount; i++) {
+                const angle = (Math.PI * 2 * i) / dropCount;
+                const r = 20 + Math.random() * 20;
+                const node = new AdnNode();
+                node.id = Math.random().toString(36).slice(2, 9);
+                node.x = enemy.x + Math.cos(angle) * r;
+                node.y = enemy.y + Math.sin(angle) * r;
+                node.amount = 1;
+                node.active = true;
+                this.state.adnNodes.set(node.id, node);
+              }
+              this.broadcast('enemyKilled', { enemyId, x: enemy.x, y: enemy.y, damage: result.damage });
+              this.state.enemies.delete(enemyId);
+            }
+          }
+          playerProjToRemove.push(proj.id);
+        }
+      });
+    });
+    playerProjToRemove.forEach(id => this.state.playerProjectiles.delete(id));
+
+    // ── Revive system tick ─────────────────────────────────────────────────
+    this.reviveSystem.tick();
+
+    // ── Extraction countdown (Tarea 25) ────────────────────────────────────
+    if (this.state.timers.isExtracting) {
+      this.extractionAccum += dt;
+      if (this.extractionAccum >= 1) {
+        this.extractionAccum -= 1;
+        this.state.timers.extractionCountdown = Math.max(
+          0,
+          this.state.timers.extractionCountdown - 1
+        );
+      }
+      this._checkExtractionWin();
+    } else if (this.state.timers.cargoDelivered >= WIN_CARGO_COUNT) {
+      this.state.timers.isExtracting = true;
+      this.state.timers.extractionCountdown = EXTRACTION_COUNTDOWN;
+    }
+
+    // ── Win/Lose checks (Tarea 27+28) ─────────────────────────────────────
+    const wlResult = this.winLoseChecker.check(this.state);
+    if (wlResult.lose) {
+      this._broadcastGameOver({ win: false, reason: wlResult.reason });
+    }
+  }
+
+  private _checkAllReady(): void {
+    const players = this.state.players;
+    if (players.size === 0) return;
+    let allReady = true;
+    players.forEach((p) => { if (!p.isReady) allReady = false; });
+    if (allReady) {
+      this.state.gameStarted = true;
+      this.broadcast('gameStarted', {});
+      console.log(`[ExtractionRoom] gameStarted | roomId=${this.roomId}`);
+    }
+  }
+
+  private _checkExtractionWin(): void {
+    if (this.gameOverSent) return;
+    if (!this.state.timers.isExtracting) return;
+    if (this.state.timers.extractionCountdown > 0) return;
+
+    // Check if at least one player is in extraction zone
+    let playerInZone = false;
+    this.state.players.forEach((p) => {
+      if (this.cargoSystem.isPlayerInExtraction(p)) playerInZone = true;
+    });
+
+    if (playerInZone) {
+      this._broadcastGameOver({ win: true });
+    }
+  }
+
+  private _broadcastGameOver(data: { win: boolean; reason?: string }): void {
+    if (this.gameOverSent) return;
+    this.gameOverSent = true;
+    this.broadcast('gameOver', {
+      ...data,
+      stats: {
+        runTime: Math.floor(this.state.timers.runTime),
+        cargoDelivered: this.state.timers.cargoDelivered,
+      },
+    });
+    console.log(`[ExtractionRoom] gameOver | win=${data.win} | reason=${data.reason ?? 'none'}`);
+  }
+}
+
+function _projHitsWall(x: number, y: number): boolean {
+  for (const w of WALLS) {
+    if (x >= w.x && x <= w.x + w.w && y >= w.y && y <= w.y + w.h) return true;
+  }
+  return false;
+}

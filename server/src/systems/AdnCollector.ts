@@ -1,0 +1,75 @@
+import { MapSchema } from '@colyseus/schema';
+import { Room } from 'colyseus';
+import { GameState, PlayerState, AdnNode } from '../schemas/GameState';
+
+/** 1 game unit = 16px. pickupRadius in units → pixels. */
+const PICKUP_RADIUS_PX = 2.0 * 16; // 32px
+const MAGNET_RADIUS_PX = 120;       // magnetic attraction radius
+const MAGNET_SPEED = 300;           // px/s
+
+function distSq(ax: number, ay: number, bx: number, by: number): number {
+  const dx = ax - bx;
+  const dy = ay - by;
+  return dx * dx + dy * dy;
+}
+
+function dist(ax: number, ay: number, bx: number, by: number): number {
+  return Math.sqrt(distSq(ax, ay, bx, by));
+}
+
+export class AdnCollector {
+  private room: Room<GameState>;
+
+  constructor(room: Room<GameState>) {
+    this.room = room;
+  }
+
+  tick(state: GameState, players: MapSchema<PlayerState>, dt: number): void {
+    const radiusSq = PICKUP_RADIUS_PX * PICKUP_RADIUS_PX;
+    const magnetRadiusSq = MAGNET_RADIUS_PX * MAGNET_RADIUS_PX;
+
+    // Track which nodes are being attracted and by whom (closest player wins)
+    const magnetTargets = new Map<string, { sessionId: string; d: number }>();
+
+    players.forEach((player, sessionId) => {
+      if (player.isDown) return;
+
+      state.adnNodes.forEach((node, nodeId) => {
+        if (!node.active) return;
+
+        const d = dist(player.x, player.y, node.x, node.y);
+
+        if (d <= PICKUP_RADIUS_PX) {
+          // Collect immediately
+          player.adn += node.amount;
+          node.active = false;
+          state.adnNodes.delete(nodeId);
+
+          const client = this.room.clients.find((c) => c.sessionId === sessionId);
+          if (client) {
+            client.send('adnPickup', { amount: node.amount, total: player.adn });
+          }
+        } else if (d <= MAGNET_RADIUS_PX) {
+          // Magnetic: closest player wins
+          const current = magnetTargets.get(nodeId);
+          if (!current || d < current.d) {
+            magnetTargets.set(nodeId, { sessionId, d });
+          }
+        }
+      });
+    });
+
+    // Apply magnetic movement for closest player per node
+    magnetTargets.forEach(({ sessionId }, nodeId) => {
+      const node = state.adnNodes.get(nodeId);
+      const player = players.get(sessionId);
+      if (!node || !node.active || !player) return;
+
+      const d = dist(player.x, player.y, node.x, node.y);
+      if (d === 0) return;
+
+      node.x += (player.x - node.x) / d * MAGNET_SPEED * dt;
+      node.y += (player.y - node.y) / d * MAGNET_SPEED * dt;
+    });
+  }
+}

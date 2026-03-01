@@ -1,6 +1,6 @@
 import { Room } from 'colyseus';
 import { GameState, ToxicZoneState } from '../schemas/GameState';
-import { getZoneBounds } from '@evo/shared/mapData';
+import { getZoneBounds } from '../../../shared/src/mapData';
 import collapseConfig from '../config/collapseConfig.json';
 
 const MAX_MINUTE = 13;

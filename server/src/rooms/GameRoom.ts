@@ -1,6 +1,6 @@
 import { Room, Client } from 'colyseus';
 import { Schema, type, MapSchema } from '@colyseus/schema';
-import { getSpawn } from '@evo/shared/mapData';
+import { getSpawn } from '../../../shared/src/mapData';
 
 class PlayerState extends Schema {
   @type('string') id: string = '';

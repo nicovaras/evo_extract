@@ -1,6 +1,6 @@
 import { MapSchema } from '@colyseus/schema';
 import { AdnNode, GameState } from '../schemas/GameState';
-import { getZoneBounds } from '@evo/shared/mapData';
+import { getZoneBounds } from '../../../shared/src/mapData';
 import adnConfig from '../config/adnConfig.json';
 
 interface ZoneConfig {

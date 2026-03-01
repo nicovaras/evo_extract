@@ -343,11 +343,6 @@
   ],
   "spawns": [
     {
-      "type": "player",
-      "x": 837,
-      "y": 139
-    },
-    {
       "type": "miniBossA",
       "x": 451,
       "y": 808
@@ -356,6 +351,11 @@
       "type": "miniBossB",
       "x": 1507,
       "y": 737
+    },
+    {
+      "type": "player",
+      "x": 846,
+      "y": 106
     }
   ]
 }

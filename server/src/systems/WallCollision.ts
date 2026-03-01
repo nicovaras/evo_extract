@@ -1,4 +1,4 @@
-import { MAP_WALLS as WALLS } from '@evo/shared/mapData';
+import { MAP_WALLS as WALLS } from '../../../shared/src/mapData';
 
 export function resolveWallCollision(x: number, y: number, radius: number = 16): { x: number; y: number } {
   let nx = x, ny = y;

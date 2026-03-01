@@ -1,5 +1,5 @@
 import { CraftResult, PartDefinition } from '@evo/shared';
-import { inZone } from '@evo/shared/mapData';
+import { inZone } from '../../../shared/src/mapData';
 import { GameState, PlayerState } from '../schemas/GameState';
 import { getPartById } from '../config/partsTable';
 

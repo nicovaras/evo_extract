@@ -5,7 +5,7 @@ import {
   WIN_CARGO_COUNT,
   EXTRACTION_COUNTDOWN,
 } from '@evo/shared';
-import { inZone } from '@evo/shared/mapData';
+import { inZone } from '../../../shared/src/mapData';
 
 export interface SealResult {
   success: boolean;

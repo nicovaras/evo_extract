@@ -1,7 +1,7 @@
 import { GameState } from '../schemas/GameState';
 import { EnemyManager } from './EnemyManager';
 import { EnemyType } from '../config/enemyConfig';
-import { getZoneBounds, getSpawn } from '@evo/shared/mapData';
+import { getZoneBounds, getSpawn } from '../../../shared/src/mapData';
 
 export interface SpawnEvent {
   id: string;

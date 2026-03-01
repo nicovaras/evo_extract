@@ -1,6 +1,6 @@
 import { Room, Client } from 'colyseus';
 import { GameState, PlayerState, ProjectileState, AdnNode } from '../schemas/GameState';
-import { getSpawn } from '@evo/shared/mapData';
+import { getSpawn } from '../../../shared/src/mapData';
 import { InputProcessor, InputPayload } from '../systems/InputProcessor';
 import { CargoSystem } from '../systems/CargoSystem';
 import { WinLoseChecker } from '../systems/WinLoseChecker';

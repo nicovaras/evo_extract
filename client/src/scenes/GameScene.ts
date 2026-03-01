@@ -451,24 +451,29 @@ export class GameScene extends Phaser.Scene {
       zoneB:      { color: 0x1a1a4a, label: 'ZONA B\nTransporte estable',              textColor: '#4a8aff' },
       extraction: { color: 0x4a4a00, label: 'EXTRACCIÓN\nEntregá aquí',               textColor: '#ffff44' },
     };
+    // ── Zone overlays (depth 1, above floor) ─────────────────────────────────
+    const zoneG = this.add.graphics().setDepth(1);
     for (const zone of getMapData().zones) {
       const style = zoneStyles[zone.name];
-      const fillColor = style ? style.color : 0x2a2a2a;
-      g.fillStyle(fillColor);
-      g.fillRect(zone.x, zone.y, zone.w, zone.h);
-      const label = style ? style.label : zone.name;
-      const textColor = style ? style.textColor : '#ffffff';
-      this._label(zone.x + zone.w / 2, zone.y + zone.h / 2, label, textColor);
+      if (!style) continue;
+
+      // Filled tint — subtle, mostly transparent
+      zoneG.fillStyle(style.color, 0.18);
+      zoneG.fillRect(zone.x, zone.y, zone.w, zone.h);
+
+      // Solid border so the boundary is unmistakable
+      zoneG.lineStyle(3, style.color, 0.85);
+      zoneG.strokeRect(zone.x, zone.y, zone.w, zone.h);
+
+      // Zone label (centered, slightly above middle so it doesn't fight with player)
+      this._label(zone.x + zone.w / 2, zone.y + 28, style.label, style.textColor);
     }
 
-    g.lineStyle(1, 0xffffff, 0.04);
-    for (let x = 0; x <= WORLD_SIZE; x += 100) {
-      g.lineBetween(x, 0, x, WORLD_SIZE);
-    }
-    for (let y = 0; y <= WORLD_SIZE; y += 100) {
-      g.lineBetween(0, y, WORLD_SIZE, y);
-    }
-    g.setDepth(0);
+    // Grid (very faint, above floor below zones)
+    g.lineStyle(1, 0xffffff, 0.03);
+    for (let x = 0; x <= WORLD_SIZE; x += 100) g.lineBetween(x, 0, x, WORLD_SIZE);
+    for (let y = 0; y <= WORLD_SIZE; y += 100) g.lineBetween(0, y, WORLD_SIZE, y);
+    g.setDepth(1);
 
     // ── Static walls ───────────────────────────────────────────────────────
     this.wallGroup = this.physics.add.staticGroup();

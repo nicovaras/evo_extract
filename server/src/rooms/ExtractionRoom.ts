@@ -130,7 +130,7 @@ export class ExtractionRoom extends Room<GameState> {
     });
 
     // Melee attack — hits all enemies within range
-    const MELEE_RANGE = 80;
+    const MELEE_RANGE = 130; // wider range so player doesn't need to be inside enemy hitbox
     const MELEE_COOLDOWN_MS = 600;
     const meleeCooldown = new Map<string, number>();
     this.onMessage('meleeAttack', (client, data: { vx: number; vy: number }) => {
@@ -245,6 +245,15 @@ export class ExtractionRoom extends Room<GameState> {
 
     // Update run timer
     this.state.timers.runTime += dt;
+
+    // Passive HP regen: 1 HP/4s base for everyone, +1 HP/s with Núcleo (lifeSteal handled on hit)
+    const BASE_REGEN_RATE = 0.25; // HP per second
+    this.state.players.forEach((player) => {
+      if (!player.isDown && player.hp > 0 && player.hp < player.maxHp) {
+        const regenRate = BASE_REGEN_RATE + (player.equippedParts.includes('nucleo_regenerativo') ? 1.0 : 0);
+        player.hp = Math.min(player.maxHp, player.hp + regenRate * dt);
+      }
+    });
 
     // Actualizar phase según runTime
     const rt = this.state.timers.runTime;

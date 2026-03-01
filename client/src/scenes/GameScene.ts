@@ -22,7 +22,7 @@ const WORLD_SIZE = 2000;
 const DASH_SPEED_MULT = 2;
 const DASH_DURATION_MS = 200;
 const DASH_COOLDOWN_MS = 1500;
-const BASE_SPEED = 600; // px/s (6 units × 100px)
+const BASE_SPEED = 480; // px/s — matches server speed 4.8 × 100
 const BULLET_SPEED = 800;
 const FIRE_RATE_MS = Math.round(1000 / 2.2); // ~454ms between shots
 
@@ -260,7 +260,15 @@ export class GameScene extends Phaser.Scene {
       let dy = input.dy;
       const len = Math.sqrt(dx * dx + dy * dy);
       if (len > 0) { dx /= len; dy /= len; }
-      this.player.setVelocity(dx * BASE_SPEED * speedMult * carryMult, dy * BASE_SPEED * speedMult * carryMult);
+      const targetVx = dx * BASE_SPEED * speedMult * carryMult;
+      const targetVy = dy * BASE_SPEED * speedMult * carryMult;
+      // Lerp velocity for smoother acceleration (reduces abrupt starts/stops)
+      const acc = 0.25;
+      const body = this.player.body as Phaser.Physics.Arcade.Body;
+      body.setVelocity(
+        Phaser.Math.Linear(body.velocity.x, targetVx, acc),
+        Phaser.Math.Linear(body.velocity.y, targetVy, acc)
+      );
       this.player.setRotation(input.facing);
     }
 

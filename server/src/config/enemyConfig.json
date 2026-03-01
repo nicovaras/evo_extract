@@ -1,6 +1,6 @@
 {
-  "basic":  { "hp": 55,  "damage": 14, "speed": 4.5, "adnDrop": 3 },
-  "ranged": { "hp": 40,  "damage": 10, "speed": 4.0, "adnDrop": 4,
+  "basic":  { "hp": 55,  "damage": 12, "speed": 4.2, "adnDrop": 5 },
+  "ranged": { "hp": 40,  "damage": 9,  "speed": 3.8, "adnDrop": 7,
               "projectileSpeed": 180, "attackCooldown": 1.0, "range": 180 },
   "tank":   { "hp": 160, "damage": 18, "speed": 3.0, "adnDrop": 8 },
   "eliteMultipliers": { "hp": 2.2, "damage": 1.6, "speed": 1.15, "adnDrop": 3 },

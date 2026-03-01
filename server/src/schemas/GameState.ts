@@ -12,7 +12,7 @@ export class PlayerState extends Schema {
   @type('number') hp: number = 120;
   @type('number') maxHp: number = 120;
   @type('number') adn: number = 0;
-  @type('number') speed: number = 6.0;
+  @type('number') speed: number = 4.8; // reduced from 6.0 — more controllable
   @type('number') facing: number = 0;
   @type('boolean') isDown: boolean = false;
   @type('boolean') isCarrying: boolean = false;

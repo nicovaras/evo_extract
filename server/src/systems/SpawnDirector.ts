@@ -130,7 +130,7 @@ export class SpawnDirector {
 
   private _pickType(phase: string): EnemyType {
     const r = Math.random();
-    if (phase === 'early') return r < 0.15 ? 'ranged' : 'basic';
+    if (phase === 'early') return 'basic'; // solo melee al principio, aprender el ritmo
     if (phase === 'mid') return r < 0.15 ? 'tank' : r < 0.45 ? 'ranged' : 'basic';
     // late: 25% tank, 40% ranged, 35% basic
     if (r < 0.25) return 'tank';

@@ -22,7 +22,7 @@ const WORLD_SIZE = 2000;
 const DASH_SPEED_MULT = 2;
 const DASH_DURATION_MS = 200;
 const DASH_COOLDOWN_MS = 1500;
-const BASE_SPEED = 480; // px/s — matches server speed 4.8 × 100
+const BASE_SPEED = 420; // px/s — matches server speed 4.2 × 100
 const BULLET_SPEED = 800;
 const FIRE_RATE_MS = Math.round(1000 / 2.2); // ~454ms between shots
 
@@ -76,6 +76,7 @@ export class GameScene extends Phaser.Scene {
   private fKey!: Phaser.Input.Keyboard.Key;
   private rKey!: Phaser.Input.Keyboard.Key;
   private tKey!: Phaser.Input.Keyboard.Key;
+  private qKey!: Phaser.Input.Keyboard.Key;
   private lastWarpAttempt: number = 0;
 
   // Wall physics group
@@ -187,6 +188,7 @@ export class GameScene extends Phaser.Scene {
     this.fKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.F);
     this.rKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
     this.tKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.T);
+    this.qKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
 
     // ── Crafting panel ─────────────────────────────────────────────────────────
     this.craftingPanel = new CraftingPanel(this, this.room);
@@ -316,6 +318,11 @@ export class GameScene extends Phaser.Scene {
 
       // ── E key logic ───────────────────────────────────────────────────────
       const inHub = inZone('hub', serverPlayer.x, serverPlayer.y);
+
+      // Q → usar poción
+      if (Phaser.Input.Keyboard.JustDown(this.qKey)) {
+        this.room.send('usePotion', {});
+      }
 
       // T → warp to spawn (panic button, 30s cooldown)
       if (Phaser.Input.Keyboard.JustDown(this.tKey) && now - this.lastWarpAttempt > 1000) {
@@ -707,6 +714,15 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Toxic zones initial update
+    this.room.onMessage('potionUsed',    (msg: { hp: number; potions: number }) => {
+      this.showToast(`💊 +60 HP  (${msg.potions} left)`, '#88ff88');
+    });
+    this.room.onMessage('potionEmpty',   () => this.showToast('💊 Sin pociones', '#ff8844'));
+    this.room.onMessage('potionFull',    () => this.showToast('💊 Ya tenés HP máximo', '#aaaaaa'));
+    this.room.onMessage('potionDropped', (msg: { potions: number }) => {
+      this.showToast(`💊 ¡Poción del boss! (${msg.potions} total)`, '#ffff44');
+    });
+
     this.room.onMessage('warped', () => {
       this.showToast('⚡ Teletransportado al spawn', '#7af');
     });
@@ -765,8 +781,9 @@ export class GameScene extends Phaser.Scene {
       '🧬 OBJETIVO: Sellar 8 Cargas y extraerlas',
       '─────────────────────────────────────────',
       'WASD  Moverse        SHIFT  Dash',
-      'CLICK Disparar       E      Evolucionar (Hub)',
+      'CLICK Atacar         E      Evolucionar (Hub)',
       'F     Sellar Carga   R      Revivir aliado',
+      'Q     Poción (💊x2)  T      Volver al Spawn',
       '─────────────────────────────────────────',
       '📦 Farm ADN → Sella Carga (30 ADN) → Lleva a Extracción',
       '⚠️  El mapa colapsa con el tiempo. ¡Escapá antes de 13:00!',

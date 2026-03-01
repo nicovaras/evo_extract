@@ -12,7 +12,7 @@ export class PlayerState extends Schema {
   @type('number') hp: number = 120;
   @type('number') maxHp: number = 120;
   @type('number') adn: number = 0;
-  @type('number') speed: number = 4.8; // reduced from 6.0 — more controllable
+  @type('number') speed: number = 4.2; // units/s × 100 = 420px/s
   @type('number') facing: number = 0;
   @type('boolean') isDown: boolean = false;
   @type('boolean') isCarrying: boolean = false;
@@ -26,6 +26,7 @@ export class PlayerState extends Schema {
   @type('boolean') isRanged: boolean = false;   // false = melee (default), true = ranged via craft
   @type('number') meleeDamage: number = 22;     // kept in sync by CraftingSystem
   @type('number') lifeSteal: number = 0;
+  @type('number') potions: number = 2;   // start with 2 potions
   @type('number') downedAt: number = 0;
 }
 

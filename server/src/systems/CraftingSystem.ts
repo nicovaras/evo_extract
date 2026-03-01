@@ -105,10 +105,17 @@ export class CraftingSystem {
 
   private _applyModifiers(player: PlayerState, part: PartDefinition, sign: 1 | -1): void {
     const m = part.statModifiers;
-    if (m.speed !== undefined)      player.speed   += sign * m.speed;
-    if (m.maxHp !== undefined)      player.maxHp   += sign * m.maxHp;
-    // Extended stats not yet in PlayerState schema are silently ignored
-    // (damage, attackRate, armor, critChance, critMult, lifeSteal, pickupRadius)
-    // They are tracked client-side via equippedParts + partsTable lookup.
+    if (m.speed      !== undefined) player.speed        += sign * m.speed;
+    if (m.maxHp      !== undefined) player.maxHp        += sign * m.maxHp;
+    if (m.damage     !== undefined) player.attackDamage += sign * m.damage;
+    if (m.armor      !== undefined) player.armor        += sign * m.armor;
+    if (m.critChance !== undefined) player.critChance   += sign * m.critChance;
+    if (m.critMult   !== undefined) player.critMult     += sign * m.critMult;
+    if (m.lifeSteal  !== undefined) player.lifeSteal    += sign * m.lifeSteal;
+    // Clamp sanity
+    player.critChance = Math.max(0, Math.min(0.95, player.critChance));
+    player.critMult   = Math.max(1.0, player.critMult);
+    player.armor      = Math.max(0, player.armor);
+    player.speed      = Math.max(1.0, player.speed);
   }
 }

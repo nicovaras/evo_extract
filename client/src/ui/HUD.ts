@@ -8,18 +8,18 @@ const CAPSULE_Y = 300;
 
 // Parts table for stat delta display (mirrors CraftingPanel)
 const PARTS_TABLE: Array<{ id: string; statModifiers: Partial<Record<string, number>> }> = [
-  { id: 'garras_rapidas',      statModifiers: { attackRate: 0.5, damage: -3 } },
-  { id: 'martillos_oseos',     statModifiers: { damage: 6, attackRate: -0.4, speed: -0.5 } },
-  { id: 'latigos_tendinosos',  statModifiers: { damage: 4, attackRate: 0.3, armor: -1 } },
-  { id: 'patas_felinas',       statModifiers: { speed: 1.5, maxHp: -15 } },
-  { id: 'piernas_saltador',    statModifiers: { armor: -1 } },
-  { id: 'zancos_queratinosos', statModifiers: { speed: -0.5 } },
-  { id: 'craneo_cazador',      statModifiers: { critChance: 0.08, critMult: 0.3, attackRate: -0.3 } },
-  { id: 'ojo_compuesto',       statModifiers: { pickupRadius: 1.0, damage: -2 } },
-  { id: 'bulbo_neural',        statModifiers: { critChance: 0.05, maxHp: -20 } },
-  { id: 'caparazon_ligero',    statModifiers: { maxHp: 30, armor: 2, speed: -0.5 } },
-  { id: 'masa_muscular',       statModifiers: { maxHp: 20, critChance: -0.03 } },
-  { id: 'nucleo_regenerativo', statModifiers: { lifeSteal: 0.05, speed: -0.5 } },
+  { id: 'garras_rapidas',      statModifiers: { attackRate: 0.8, damage: -4 } },
+  { id: 'martillos_oseos',     statModifiers: { damage: 14, attackRate: -0.3, speed: -0.5 } },
+  { id: 'latigos_tendinosos',  statModifiers: { damage: 10, attackRate: 0.5, armor: -1 } },
+  { id: 'patas_felinas',       statModifiers: { speed: 2.0, maxHp: -10 } },
+  { id: 'piernas_saltador',    statModifiers: { speed: 1.0, armor: -1 } },
+  { id: 'zancos_queratinosos', statModifiers: { speed: 1.5, maxHp: 20 } },
+  { id: 'craneo_cazador',      statModifiers: { critChance: 0.15, critMult: 0.5, attackRate: -0.2 } },
+  { id: 'ojo_compuesto',       statModifiers: { pickupRadius: 2.0, damage: 5 } },
+  { id: 'bulbo_neural',        statModifiers: { critChance: 0.10, critMult: 0.8, maxHp: -15 } },
+  { id: 'caparazon_ligero',    statModifiers: { maxHp: 50, armor: 3, speed: -0.5 } },
+  { id: 'masa_muscular',       statModifiers: { maxHp: 40, armor: 2, critChance: -0.05 } },
+  { id: 'nucleo_regenerativo', statModifiers: { lifeSteal: 0.12, maxHp: 30, speed: -0.3 } },
 ];
 
 export class HUD {
@@ -184,7 +184,7 @@ export class HUD {
       .setDepth(50);
 
     // ── Stats panel (bottom-left) ─────────────────────────────────────────────
-    const statsLines = 5;
+    const statsLines = 6;
     const statsLineH = 16;
     const statsPanelH = statsLines * statsLineH + 12;
     const statsPanelW = 175;
@@ -302,11 +302,15 @@ export class HUD {
       }
 
       const critPct = Math.round((player.critChance ?? 0) * 100);
+      const critMultVal = ((player.critMult ?? 1.6) * 100 - 100).toFixed(0);
+      const mode = (player as any).isRanged ? '🔫 Ranged' : '⚔️ Melee';
+      const potions = (player as any).potions ?? 0;
       this.statsText.setText(
+        `${mode}  💊 ${potions} pociones (Q)\n` +
         `⚔️ Daño: ${player.attackDamage ?? BASE_DAMAGE}${fmtDelta(dDamage)}\n` +
         `👟 Vel:  ${(player.speed ?? BASE_SPEED).toFixed(1)}${fmtDelta(dSpeed, 1)}\n` +
         `🛡️ Arm:  ${player.armor ?? BASE_ARMOR}${fmtDelta(dArmor)}\n` +
-        `🎯 Crit: ${critPct}%${fmtDelta(dCrit)}%\n` +
+        `🎯 Crit: ${critPct}%  x${(player.critMult ?? 1.6).toFixed(1)}${fmtDelta(dCrit)}%\n` +
         `✨ LifeS: ${((player.lifeSteal ?? 0) * 100).toFixed(0)}%`
       );
     }

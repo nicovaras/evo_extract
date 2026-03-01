@@ -163,6 +163,17 @@ export class ExtractionRoom extends Room<GameState> {
       client.send('meleeHit', { count: hits.length });
     });
 
+    // Use potion — heals 60 HP, max 2 charges, +1 on miniboss kill
+    this.onMessage('usePotion', (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || player.isDown) return;
+      if (player.potions <= 0) { client.send('potionEmpty', {}); return; }
+      if (player.hp >= player.maxHp) { client.send('potionFull', {}); return; }
+      player.potions -= 1;
+      player.hp = Math.min(player.maxHp, player.hp + 60);
+      client.send('potionUsed', { hp: Math.ceil(player.hp), potions: player.potions });
+    });
+
     // Warp to spawn (panic button — cooldown 30s)
     const warpCooldown = new Map<string, number>();
     this.onMessage('warpToSpawn', (client) => {
@@ -447,6 +458,18 @@ export class ExtractionRoom extends Room<GameState> {
       node.amount = 1;
       node.active = true;
       this.state.adnNodes.set(node.id, node);
+    }
+    // Mini-bosses drop a potion to a random alive player
+    if (enemy.isBoss) {
+      const alivePlayers: string[] = [];
+      this.state.players.forEach((p, sid) => { if (!p.isDown) alivePlayers.push(sid); });
+      if (alivePlayers.length > 0) {
+        const sid = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
+        const p = this.state.players.get(sid)!;
+        p.potions = Math.min(p.potions + 1, 4);
+        const client = this.clients.find(c => c.sessionId === sid);
+        client?.send('potionDropped', { potions: p.potions });
+      }
     }
     this.broadcast('enemyKilled', { enemyId, x: enemy.x, y: enemy.y, damage: 0 });
     this.state.enemies.delete(enemyId);

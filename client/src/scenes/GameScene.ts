@@ -13,7 +13,7 @@ import { CombatFX } from '../fx/CombatFX';
 import { CraftingPanel } from '../ui/CraftingPanel';
 import { AdnNodeSprite } from '../objects/AdnNodeSprite';
 import { SEAL_TIME } from '@evo/shared';
-import { getWalls } from '../mapData';
+import { getWalls, getZone, inZone, getMapData } from '../mapData';
 import { AudioManager } from '../audio/AudioManager';
 import { OnboardingSystem } from '../ui/OnboardingSystem';
 import { HoldProgressBar } from '../fx/HoldProgressBar';
@@ -26,15 +26,7 @@ const BASE_SPEED = 600; // px/s (6 units × 100px)
 const BULLET_SPEED = 800;
 const FIRE_RATE_MS = Math.round(1000 / 2.2); // ~454ms between shots
 
-// Extraction zone (server coords)
-const EXTRACTION_X_MIN = 1400;
-const EXTRACTION_Y_MAX = 600;
-
-// Hub zone (server coords)
-const HUB_X_MIN = 800;
-const HUB_X_MAX = 1200;
-const HUB_Y_MIN = 800;
-const HUB_Y_MAX = 1200;
+// Zone bounds are read from map JSON via getZone() / inZone() at runtime
 
 // Remote player representation
 interface RemotePlayer {
@@ -292,8 +284,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       // ── Auto-deliver when in extraction zone ──────────────────────────────
-      const inExtraction =
-        serverPlayer.x >= EXTRACTION_X_MIN && serverPlayer.y <= EXTRACTION_Y_MAX;
+      const inExtraction = inZone('extraction', serverPlayer.x, serverPlayer.y);
 
       if (inExtraction && serverPlayer.isCarrying && !this.deliverSent) {
         this.deliverSent = true;
@@ -304,11 +295,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       // ── E key logic ───────────────────────────────────────────────────────
-      const inHub =
-        serverPlayer.x >= HUB_X_MIN &&
-        serverPlayer.x <= HUB_X_MAX &&
-        serverPlayer.y >= HUB_Y_MIN &&
-        serverPlayer.y <= HUB_Y_MAX;
+      const inHub = inZone('hub', serverPlayer.x, serverPlayer.y);
 
       const eJustDown = Phaser.Input.Keyboard.JustDown(this.eKey);
       const eDown = this.eKey?.isDown ?? false;
@@ -424,21 +411,22 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(0x1a1a2e);
     g.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
 
-    g.fillStyle(0x1a4a1a);
-    g.fillRect(800, 800, 400, 400);
-    this._label(1000, 1000, 'HUB\nE → Evolucionar\nF → Sellar Carga', '#2aff6a');
-
-    g.fillStyle(0x4a1a1a);
-    g.fillRect(0, 0, 700, 700);
-    this._label(350, 350, 'ZONA A\nFarm rápido', '#ff4a4a');
-
-    g.fillStyle(0x1a1a4a);
-    g.fillRect(1300, 1300, 700, 700);
-    this._label(1650, 1650, 'ZONA B\nTransporte estable', '#4a8aff');
-
-    g.fillStyle(0x4a4a00);
-    g.fillRect(1400, 0, 600, 600);
-    this._label(1700, 300, 'EXTRACCIÓN\nEntregá aquí', '#ffff44');
+    // Draw zones from map JSON
+    const zoneStyles: Record<string, { color: number; label: string; textColor: string }> = {
+      hub:        { color: 0x1a4a1a, label: 'HUB\nE → Evolucionar\nF → Sellar Carga', textColor: '#2aff6a' },
+      zoneA:      { color: 0x4a1a1a, label: 'ZONA A\nFarm rápido',                    textColor: '#ff4a4a' },
+      zoneB:      { color: 0x1a1a4a, label: 'ZONA B\nTransporte estable',              textColor: '#4a8aff' },
+      extraction: { color: 0x4a4a00, label: 'EXTRACCIÓN\nEntregá aquí',               textColor: '#ffff44' },
+    };
+    for (const zone of getMapData().zones) {
+      const style = zoneStyles[zone.name];
+      const fillColor = style ? style.color : 0x2a2a2a;
+      g.fillStyle(fillColor);
+      g.fillRect(zone.x, zone.y, zone.w, zone.h);
+      const label = style ? style.label : zone.name;
+      const textColor = style ? style.textColor : '#ffffff';
+      this._label(zone.x + zone.w / 2, zone.y + zone.h / 2, label, textColor);
+    }
 
     g.lineStyle(1, 0xffffff, 0.04);
     for (let x = 0; x <= WORLD_SIZE; x += 100) {

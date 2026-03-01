@@ -1,28 +1,20 @@
 import Phaser from 'phaser';
-
-const RADIUS = 8;
-const PULSE_SCALE = 1.2;
-const PULSE_DURATION = 700; // ms per half-cycle
+import { SPRITE_ADN_NODE } from '../assets/spriteKeys';
 
 export class AdnNodeSprite {
-  private scene: Phaser.Scene;
-  private circle: Phaser.GameObjects.Arc;
+  private sprite: Phaser.GameObjects.Image;
   private pulseTween: Phaser.Tweens.Tween;
 
   constructor(scene: Phaser.Scene, worldX: number, worldY: number) {
-    this.scene = scene;
-
-    // Yellow circle
-    this.circle = scene.add
-      .circle(worldX, worldY, RADIUS, 0xffe600)
+    this.sprite = scene.add.image(worldX, worldY, SPRITE_ADN_NODE)
+      .setDisplaySize(16, 16)
       .setDepth(5);
 
-    // Pulse tween: scale 1 → 1.2 → 1, looping
     this.pulseTween = scene.tweens.add({
-      targets: this.circle,
-      scaleX: PULSE_SCALE,
-      scaleY: PULSE_SCALE,
-      duration: PULSE_DURATION,
+      targets: this.sprite,
+      scaleX: 1.25,
+      scaleY: 1.25,
+      duration: 700,
       ease: 'Sine.easeInOut',
       yoyo: true,
       loop: -1,
@@ -30,11 +22,11 @@ export class AdnNodeSprite {
   }
 
   setPosition(x: number, y: number): void {
-    this.circle.setPosition(x, y);
+    this.sprite.setPosition(x, y);
   }
 
   destroy(): void {
     this.pulseTween.stop();
-    this.circle.destroy();
+    this.sprite.destroy();
   }
 }

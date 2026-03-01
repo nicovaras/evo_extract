@@ -1,21 +1,20 @@
 import Phaser from 'phaser';
+import { SPRITE_BULLET } from '../assets/spriteKeys';
 
 export class ProjectileSprite {
-  private graphics: Phaser.GameObjects.Graphics;
+  private sprite: Phaser.GameObjects.Image;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
-    this.graphics = scene.add.graphics();
-    this.graphics.fillStyle(0xffff44, 1);
-    this.graphics.fillCircle(0, 0, 5);
-    this.graphics.setPosition(x, y);
-    this.graphics.setDepth(9);
+    this.sprite = scene.add.image(x, y, SPRITE_BULLET)
+      .setDisplaySize(10, 10)
+      .setDepth(9);
   }
 
   update(x: number, y: number): void {
-    this.graphics.setPosition(x, y);
+    this.sprite.setPosition(x, y);
   }
 
   destroy(): void {
-    this.graphics.destroy();
+    this.sprite.destroy();
   }
 }

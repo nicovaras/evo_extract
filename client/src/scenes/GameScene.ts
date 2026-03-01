@@ -134,13 +134,7 @@ export class GameScene extends Phaser.Scene {
     const startX = 1000;
     const startY = 1000;
 
-    const gfx = this.make.graphics({});
-    gfx.fillStyle(0x00ff66);
-    gfx.fillRect(0, 0, 32, 32);
-    gfx.generateTexture('player_local', 32, 32);
-    gfx.destroy();
-
-    this.player = this.physics.add.image(startX, startY, 'player_local');
+    this.player = this.physics.add.image(startX, startY, 'player_base');
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(10);
     this.player.setAlpha(0); // physics body invisible — PlayerBody is the visual
@@ -151,12 +145,6 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this.wallGroup);
 
     // ── Bullets ────────────────────────────────────────────────────────────────
-    const bGfx = this.make.graphics({});
-    bGfx.fillStyle(0xffff00);
-    bGfx.fillCircle(4, 4, 4);
-    bGfx.generateTexture('bullet', 8, 8);
-    bGfx.destroy();
-
     this.bullets = this.physics.add.group({
       defaultKey: 'bullet',
       maxSize: 50,
@@ -451,8 +439,10 @@ export class GameScene extends Phaser.Scene {
   private _buildMap(): void {
     const g = this.add.graphics();
 
-    g.fillStyle(0x1a1a2e);
-    g.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+    // Background: tiled floor texture
+    this.add.tileSprite(0, 0, WORLD_SIZE, WORLD_SIZE, 'bg_floor')
+      .setOrigin(0, 0)
+      .setDepth(0);
 
     // Draw zones from map JSON
     const zoneStyles: Record<string, { color: number; label: string; textColor: string }> = {
@@ -483,7 +473,7 @@ export class GameScene extends Phaser.Scene {
     // ── Static walls ───────────────────────────────────────────────────────
     this.wallGroup = this.physics.add.staticGroup();
     for (const w of getWalls()) {
-      const wallRect = this.add.rectangle(w.x + w.w / 2, w.y + w.h / 2, w.w, w.h, 0x555566);
+      const wallRect = this.add.tileSprite(w.x, w.y, w.w, w.h, 'wall').setOrigin(0, 0);
       wallRect.setDepth(2);
       this.physics.add.existing(wallRect, true);
       this.wallGroup.add(wallRect);

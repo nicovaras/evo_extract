@@ -1,22 +1,8 @@
-/**
- * PlayerBody — Visual placeholder for a player's equipped parts.
- *
- * The "body" is a Phaser.GameObjects.Container with:
- *   - A central 32×32 square (the base body)
- *   - Up to 5 slot attachments: Head, Arms, Legs, Torso, Ranged
- *
- * Each attachment is a colored rectangle at a fixed offset from center.
- * Color encodes the tier of the equipped part.
- */
+import { SPRITE_PLAYER, SPRITE_PARTS } from '../assets/spriteKeys';
 
 export type PartSlot = 'Head' | 'Arms' | 'Legs' | 'Torso' | 'Ranged';
 
-// ── Tier colors ───────────────────────────────────────────────────────────────
-const TIER_COLORS: Record<string, number> = {
-  T1: 0x88ccff,   // light blue
-  T2: 0xffaa33,   // orange
-  T3: 0xff44aa,   // pink/magenta
-};
+
 
 // ── Slot layout: offset + size relative to body center ───────────────────────
 // Body center is at (0,0). Body itself is 32×32.
@@ -49,17 +35,17 @@ export class PlayerBody {
   readonly container: Phaser.GameObjects.Container;
 
   private scene: Phaser.Scene;
-  private baseBody: Phaser.GameObjects.Rectangle;
+  private baseBody: Phaser.GameObjects.Image;
   private attachments: Map<PartSlot, Phaser.GameObjects.Container> = new Map();
 
   // Current equipped part ids (for diffing)
   private _equipped: Set<string> = new Set();
 
-  constructor(scene: Phaser.Scene, x: number, y: number, baseColor = 0x00ff66, depth = 10) {
+  constructor(scene: Phaser.Scene, x: number, y: number, _baseColor = 0x00ff66, depth = 10) {
     this.scene = scene;
 
     // Base body square
-    this.baseBody = scene.add.rectangle(0, 0, 32, 32, baseColor);
+    this.baseBody = scene.add.image(0, 0, SPRITE_PLAYER).setDisplaySize(32, 32);
 
     this.container = scene.add.container(x, y, [this.baseBody]);
     this.container.setDepth(depth);
@@ -110,25 +96,12 @@ export class PlayerBody {
     }
 
     for (const [slot, partId] of slotMap) {
-      const def = PART_SLOTS[partId]!;
       const layout = SLOT_LAYOUT[slot];
-      const color = TIER_COLORS[def.tier] ?? 0xffffff;
+      const spriteKey = SPRITE_PARTS[partId];
 
-      const rect = this.scene.add.rectangle(0, 0, layout.w, layout.h, color, 1);
+      const img = this.scene.add.image(0, 0, spriteKey).setDisplaySize(layout.w, layout.h);
 
-      // Tier indicator: small dot in top-right of attachment
-      const dot = this.scene.add.circle(
-        layout.w / 2 - 3,
-        -layout.h / 2 + 3,
-        2,
-        def.tier === 'T1' ? 0xffffff : def.tier === 'T2' ? 0xffd700 : 0xff00ff,
-        0.9,
-      );
-
-      // Glow outline matching tier
-      const outline = this.scene.add.rectangle(0, 0, layout.w + 2, layout.h + 2, color, 0.25);
-
-      const att = this.scene.add.container(layout.x, layout.y, [outline, rect, dot]);
+      const att = this.scene.add.container(layout.x, layout.y, [img]);
       this.attachments.set(slot, att);
       this.container.add(att);
     }

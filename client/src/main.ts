@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { PreloadScene } from './scenes/PreloadScene';
 import { LobbyScene } from './scenes/LobbyScene';
 import { GameScene } from './scenes/GameScene';
 import { initMapData } from './mapData';
@@ -11,7 +12,7 @@ initMapData().then(() => {
     height: 600,
     backgroundColor: '#1a1a2e',
     parent: 'game-container',
-    scene: [LobbyScene, GameScene],
+    scene: [PreloadScene, LobbyScene, GameScene],
     physics: {
       default: 'arcade',
       arcade: { debug: false },

@@ -15,7 +15,7 @@ import { tickBasicBehavior } from '../systems/behaviors/BasicBehavior';
 import { tickRangedBehavior } from '../systems/behaviors/RangedBehavior';
 import { tickTankBehavior } from '../systems/behaviors/TankBehavior';
 import { separateEnemies } from '../systems/EnemySeparation';
-import { EXTRACTION_COUNTDOWN, WIN_CARGO_COUNT, WALLS } from '@evo/shared';
+import { EXTRACTION_COUNTDOWN, WIN_CARGO_COUNT, WALLS, CARGO_COST } from '@evo/shared';
 import { CraftingSystem } from '../systems/CraftingSystem';
 
 const PROJECTILE_HIT_RANGE = 16;
@@ -94,11 +94,14 @@ export class ExtractionRoom extends Room<GameState> {
       const player = this.state.players.get(client.sessionId);
       if (!player) return;
 
+      const nextCost = CARGO_COST + this.state.timers.cargoSealed * 10;
       const result = this.cargoSystem.sealCargo(player, this.state);
       client.send('sealResult', {
         success: result.success,
         cargoId: result.cargoId,
         reason: result.reason,
+        nextCost: CARGO_COST + this.state.timers.cargoSealed * 10, // cost of NEXT seal
+        cost: nextCost, // what this seal cost (or would have cost)
       });
     });
 

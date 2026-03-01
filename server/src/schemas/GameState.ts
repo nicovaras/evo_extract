@@ -92,6 +92,7 @@ export class GameTimers extends Schema {
   @type('number') runTime: number = 0;
   @type('string') phase: string = 'early'; // early | mid | late
   @type('number') cargoDelivered: number = 0;
+  @type('number') cargoSealed: number = 0;     // total sealed this match (for cost scaling)
   @type('number') extractionCountdown: number = 0;
   @type('boolean') isExtracting: boolean = false;
 }

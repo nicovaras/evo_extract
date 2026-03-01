@@ -625,19 +625,26 @@ export class GameScene extends Phaser.Scene {
 
   private _setupServerMessages(): void {
     // Seal result
-    this.room.onMessage('sealResult', (msg: { success: boolean; cargoId?: string; reason?: string }) => {
+    this.room.onMessage('sealResult', (msg: { success: boolean; cargoId?: string; reason?: string; cost?: number; nextCost?: number }) => {
       const serverPlayer = this.room.state.players.get(this.room.sessionId);
       const px = serverPlayer?.x ?? this.player.x;
       const py = serverPlayer?.y ?? this.player.y;
       if (msg.success) {
         this.sealFX.showSealSuccess(px, py);
+        if (msg.nextCost) this.showToast(`Próxima carga: ${msg.nextCost} ADN`, '#ffdd44');
       } else if (msg.reason) {
-        // Mostrar razón del fallo flotante
-        const txt = this.add.text(px, py - 20, msg.reason, {
+        const reasonMap: Record<string, string> = {
+          insufficient_adn: `ADN insuficiente (necesitás ${msg.cost ?? '?'})`,
+          not_in_hub:       'Tenés que estar en el Hub',
+          already_carrying: 'Ya llevás una carga',
+          rate_limited:     'Esperá un momento',
+        };
+        const label = reasonMap[msg.reason] ?? msg.reason;
+        const txt = this.add.text(px, py - 20, `✗ ${label}`, {
           fontSize: '13px', color: '#ff4444', fontFamily: 'monospace',
           backgroundColor: '#00000088', padding: { x: 6, y: 3 },
         }).setOrigin(0.5).setDepth(50);
-        this.tweens.add({ targets: txt, y: py - 60, alpha: 0, duration: 2000, onComplete: () => txt.destroy() });
+        this.tweens.add({ targets: txt, y: py - 60, alpha: 0, duration: 2200, onComplete: () => txt.destroy() });
       }
     });
 

@@ -12,7 +12,10 @@ export interface SpawnEvent {
   isBoss: boolean;
 }
 
-const MAX_ENEMIES = 12;  // fewer but more threatening
+// Enemy caps by phase
+const MAX_ENEMIES_EARLY = 8;
+const MAX_ENEMIES_MID   = 18;
+const MAX_ENEMIES_LATE  = 28;
 
 // Returns a random point INSIDE a zone rect (with margin to avoid wall edges)
 const SPAWN_MARGIN = 60;
@@ -93,29 +96,33 @@ export class SpawnDirector {
     }
 
     // ── Regular spawn timer ─────────────────────────────────────────────────
-    if (this.manager.enemyCount >= MAX_ENEMIES) {
+    const maxEnemies = phase === 'early' ? MAX_ENEMIES_EARLY : phase === 'mid' ? MAX_ENEMIES_MID : MAX_ENEMIES_LATE;
+
+    if (this.manager.enemyCount >= maxEnemies) {
       return events;
     }
 
-    // Spawn slower but enemies are harder — pressure comes from quality not quantity
-    const intervalMs = phase === 'early' ? 5000 : phase === 'mid' ? 4000 : 3000;
+    const intervalMs = phase === 'early' ? 5000 : phase === 'mid' ? 2500 : 1800;
     this.spawnAccum += deltaMs;
 
-    while (this.spawnAccum >= intervalMs && this.manager.enemyCount < MAX_ENEMIES) {
+    while (this.spawnAccum >= intervalMs && this.manager.enemyCount < maxEnemies) {
       this.spawnAccum -= intervalMs;
-      const newEvents = this._spawnWave(state, phase);
+      const newEvents = this._spawnWave(state, phase, maxEnemies);
       events.push(...newEvents);
     }
 
     return events;
   }
 
-  private _spawnWave(state: GameState, phase: string): SpawnEvent[] {
+  private _spawnWave(state: GameState, phase: string, maxEnemies: number): SpawnEvent[] {
     const events: SpawnEvent[] = [];
-    const count = phase === 'early' ? (Math.random() < 0.5 ? 1 : 2) : 1;
+    // Wave size grows with phase
+    const count = phase === 'early' ? (Math.random() < 0.5 ? 1 : 2)
+                : phase === 'mid'   ? (Math.random() < 0.4 ? 2 : 3)
+                :                    (Math.random() < 0.3 ? 3 : 4);
 
     for (let i = 0; i < count; i++) {
-      if (this.manager.enemyCount >= MAX_ENEMIES) break;
+      if (this.manager.enemyCount >= maxEnemies) break;
 
       const type = this._pickType(phase);
       const isElite = this._rollElite(phase);
@@ -139,7 +146,7 @@ export class SpawnDirector {
   }
 
   private _rollElite(phase: string): boolean {
-    const threshold = phase === 'early' ? 0.05 : phase === 'mid' ? 0.15 : 0.30;
+    const threshold = phase === 'early' ? 0.05 : phase === 'mid' ? 0.20 : 0.40;
     return Math.random() < threshold;
   }
 }

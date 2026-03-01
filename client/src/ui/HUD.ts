@@ -366,9 +366,11 @@ export class HUD {
     // Player count
     this.playerCountText.setText(`👥 ${state.players.size}/4`);
 
-    // Cargo progress
+    // Cargo progress + current seal cost
     const delivered = state.timers?.cargoDelivered ?? 0;
-    this.cargoProgressText.setText(`📦 ${delivered}/${WIN_CARGO_COUNT}`);
+    const sealed = (state.timers as any)?.cargoSealed ?? 0;
+    const nextCost = 55 + sealed * 10;
+    this.cargoProgressText.setText(`📦 ${delivered}/${WIN_CARGO_COUNT}  [F: ${nextCost} ADN]`);
 
     // Extraction countdown
     const isExtracting = state.timers?.isExtracting ?? false;

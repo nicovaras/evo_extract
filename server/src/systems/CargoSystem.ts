@@ -38,7 +38,8 @@ export class CargoSystem {
     if (!inHub(player.x, player.y)) {
       return { success: false, reason: 'not_in_hub' };
     }
-    if (player.adn < CARGO_COST) {
+    const currentCost = CARGO_COST + state.timers.cargoSealed * 10;
+    if (player.adn < currentCost) {
       return { success: false, reason: 'insufficient_adn' };
     }
     if (player.isCarrying) {
@@ -52,8 +53,9 @@ export class CargoSystem {
     }
     lastSealTime.set(player.id, now);
 
-    // Deduct ADN
-    player.adn -= CARGO_COST;
+    // Deduct ADN (scaled cost) and register sealed count
+    player.adn -= currentCost;
+    state.timers.cargoSealed += 1;
 
     // Create cargo
     const cargo = new CargoState();

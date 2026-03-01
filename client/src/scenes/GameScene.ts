@@ -17,6 +17,7 @@ import { getWalls, getZone, inZone, getMapData } from '../mapData';
 import { AudioManager } from '../audio/AudioManager';
 import { OnboardingSystem } from '../ui/OnboardingSystem';
 import { HoldProgressBar } from '../fx/HoldProgressBar';
+import { PlayerBody } from '../objects/PlayerBody';
 
 const WORLD_SIZE = 2000;
 const DASH_SPEED_MULT = 2;
@@ -30,7 +31,7 @@ const FIRE_RATE_MS = Math.round(1000 / 2.2); // ~454ms between shots
 
 // Remote player representation
 interface RemotePlayer {
-  sprite: Phaser.GameObjects.Rectangle;
+  body: PlayerBody;
   targetX: number;
   targetY: number;
 }
@@ -45,6 +46,7 @@ export class GameScene extends Phaser.Scene {
 
   // Local player
   private player!: Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
+  private localBody!: PlayerBody;
   private dashActive = false;
   private dashEndTime = 0;
   private dashCooldownEnd = 0;
@@ -141,6 +143,9 @@ export class GameScene extends Phaser.Scene {
     this.player = this.physics.add.image(startX, startY, 'player_local');
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(10);
+    this.player.setAlpha(0); // physics body invisible — PlayerBody is the visual
+
+    this.localBody = new PlayerBody(this, startX, startY, 0x00ff66, 10);
 
     // Collide local player with static wall group
     this.physics.add.collider(this.player, this.wallGroup);
@@ -286,8 +291,9 @@ export class GameScene extends Phaser.Scene {
     // ── Remote players (interpolate) ─────────────────────────────────────────
     const lerpFactor = 0.2;
     this.remotePlayers.forEach((rp) => {
-      rp.sprite.x = Phaser.Math.Linear(rp.sprite.x, rp.targetX, lerpFactor);
-      rp.sprite.y = Phaser.Math.Linear(rp.sprite.y, rp.targetY, lerpFactor);
+      const cx = Phaser.Math.Linear(rp.body.container.x, rp.targetX, lerpFactor);
+      const cy = Phaser.Math.Linear(rp.body.container.y, rp.targetY, lerpFactor);
+      rp.body.setPosition(cx, cy);
     });
 
     // ── HUD ────────────────────────────────────────────────────────────────────
@@ -304,6 +310,10 @@ export class GameScene extends Phaser.Scene {
         this.player.x = targetX;
         this.player.y = targetY;
       }
+
+      // Sync visual body position + rotation
+      this.localBody.setPosition(this.player.x, this.player.y);
+      this.localBody.setRotation(this.player.rotation);
 
       // ── Auto-deliver when in extraction zone ──────────────────────────────
       const inExtraction = inZone('extraction', serverPlayer.x, serverPlayer.y);
@@ -512,11 +522,10 @@ export class GameScene extends Phaser.Scene {
     this.room.state.players.onAdd((playerState: any, sessionId: string) => {
       if (sessionId === this.room.sessionId) return;
 
-      const sprite = this.add.rectangle(playerState.x as number, playerState.y as number, 32, 32, 0x4488ff);
-      sprite.setDepth(10);
+      const body = new PlayerBody(this, playerState.x as number, playerState.y as number, 0x4488ff, 10);
 
       const remote: RemotePlayer = {
-        sprite,
+        body,
         targetX: playerState.x as number,
         targetY: playerState.y as number,
       };
@@ -528,6 +537,9 @@ export class GameScene extends Phaser.Scene {
         if (rp) {
           rp.targetX = playerState.x as number;
           rp.targetY = playerState.y as number;
+          const ids: string[] = [];
+          for (let i = 0; i < playerState.equippedParts.length; i++) ids.push(playerState.equippedParts[i]);
+          rp.body.updateEquipped(ids);
         }
       });
     });
@@ -535,7 +547,7 @@ export class GameScene extends Phaser.Scene {
     this.room.state.players.onRemove((_playerState: unknown, sessionId: string) => {
       const rp = this.remotePlayers.get(sessionId);
       if (rp) {
-        rp.sprite.destroy();
+        rp.body.destroy();
         this.remotePlayers.delete(sessionId);
       }
     });
@@ -640,6 +652,21 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Craft result
+    // ── Equip changes → update local PlayerBody visuals ──────────────────────
+    this.room.state.players.onAdd((playerState: any, sessionId: string) => {
+      if (sessionId !== this.room.sessionId) return;
+      // Listen for equippedParts changes on local player
+      playerState.equippedParts.onChange(() => {
+        const ids: string[] = [];
+        for (let i = 0; i < playerState.equippedParts.length; i++) ids.push(playerState.equippedParts[i]);
+        this.localBody.updateEquipped(ids);
+      });
+      // Also apply current state immediately (on reconnect)
+      const ids: string[] = [];
+      for (let i = 0; i < playerState.equippedParts.length; i++) ids.push(playerState.equippedParts[i]);
+      this.localBody.updateEquipped(ids);
+    });
+
     this.room.onMessage('craftResult', (msg: { success: boolean }) => {
       if (msg.success) this.audio.playCraft();
     });
@@ -666,8 +693,8 @@ export class GameScene extends Phaser.Scene {
       } else {
         const remote = this.remotePlayers.get(msg.sessionId!);
         if (!remote) return; // unknown player, ignore
-        px = remote.sprite.x;
-        py = remote.sprite.y;
+        px = remote.body.container.x;
+        py = remote.body.container.y;
       }
 
       if (msg.source === 'toxic') {
@@ -906,7 +933,7 @@ export class GameScene extends Phaser.Scene {
     this.hud?.destroy();
     this.overlay?.destroy();
     this.craftingPanel?.destroy();
-    this.remotePlayers.forEach((rp) => rp.sprite.destroy());
+    this.remotePlayers.forEach((rp) => rp.body.destroy());
     this.remotePlayers.clear();
     this.cargoSprites.forEach((s) => s.destroy());
     this.cargoSprites.clear();

@@ -12,7 +12,7 @@ export interface SpawnEvent {
   isBoss: boolean;
 }
 
-const MAX_ENEMIES = 30;
+const MAX_ENEMIES = 12;  // fewer but more threatening
 
 // Returns a random point INSIDE a zone rect (with margin to avoid wall edges)
 const SPAWN_MARGIN = 60;
@@ -97,7 +97,8 @@ export class SpawnDirector {
       return events;
     }
 
-    const intervalMs = phase === 'early' ? 4000 : phase === 'mid' ? 3000 : 2000;
+    // Spawn slower but enemies are harder — pressure comes from quality not quantity
+    const intervalMs = phase === 'early' ? 5000 : phase === 'mid' ? 4000 : 3000;
     this.spawnAccum += deltaMs;
 
     while (this.spawnAccum >= intervalMs && this.manager.enemyCount < MAX_ENEMIES) {
@@ -129,17 +130,16 @@ export class SpawnDirector {
 
   private _pickType(phase: string): EnemyType {
     const r = Math.random();
-    if (phase === 'early') return 'basic';
-    if (phase === 'mid') return r < 0.30 ? 'ranged' : 'basic';
-    // late: 20% tank, 30% ranged, 50% basic
-    if (r < 0.20) return 'tank';
-    if (r < 0.50) return 'ranged';
+    if (phase === 'early') return r < 0.15 ? 'ranged' : 'basic';
+    if (phase === 'mid') return r < 0.15 ? 'tank' : r < 0.45 ? 'ranged' : 'basic';
+    // late: 25% tank, 40% ranged, 35% basic
+    if (r < 0.25) return 'tank';
+    if (r < 0.65) return 'ranged';
     return 'basic';
   }
 
   private _rollElite(phase: string): boolean {
-    if (phase === 'early') return false;
-    const threshold = phase === 'mid' ? 0.10 : 0.25;
+    const threshold = phase === 'early' ? 0.05 : phase === 'mid' ? 0.15 : 0.30;
     return Math.random() < threshold;
   }
 }

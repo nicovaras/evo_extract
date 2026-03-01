@@ -158,7 +158,7 @@ export class ExtractionRoom extends Room<GameState> {
       });
 
       // Remove killed enemies
-      hits.forEach(id => this.state.enemies.delete(id));
+      hits.forEach(id => this._killEnemy(id));
 
       client.send('meleeHit', { count: hits.length });
     });
@@ -360,21 +360,7 @@ export class ExtractionRoom extends Room<GameState> {
           if (shooter) {
             const result = this.damageSystem.applyPlayerAttackToEnemy(enemy, shooter);
             if (result.killed) {
-              // Spawn ADN nodes at enemy position
-              const dropCount = enemy.adnDrop ?? 4;
-              for (let i = 0; i < dropCount; i++) {
-                const angle = (Math.PI * 2 * i) / dropCount;
-                const r = 20 + Math.random() * 20;
-                const node = new AdnNode();
-                node.id = Math.random().toString(36).slice(2, 9);
-                node.x = enemy.x + Math.cos(angle) * r;
-                node.y = enemy.y + Math.sin(angle) * r;
-                node.amount = 1;
-                node.active = true;
-                this.state.adnNodes.set(node.id, node);
-              }
-              this.broadcast('enemyKilled', { enemyId, x: enemy.x, y: enemy.y, damage: result.damage });
-              this.state.enemies.delete(enemyId);
+              this._killEnemy(enemyId);
             }
           }
           playerProjToRemove.push(proj.id);
@@ -435,6 +421,26 @@ export class ExtractionRoom extends Room<GameState> {
     if (playerInZone) {
       this._broadcastGameOver({ win: true });
     }
+  }
+
+  /** Kill an enemy, drop ADN nodes, broadcast event. Call instead of enemies.delete() directly. */
+  private _killEnemy(enemyId: string): void {
+    const enemy = this.state.enemies.get(enemyId);
+    if (!enemy) return;
+    const dropCount = enemy.adnDrop ?? 4;
+    for (let i = 0; i < dropCount; i++) {
+      const angle = (Math.PI * 2 * i) / dropCount;
+      const r = 20 + Math.random() * 20;
+      const node = new AdnNode();
+      node.id = Math.random().toString(36).slice(2, 9);
+      node.x = enemy.x + Math.cos(angle) * r;
+      node.y = enemy.y + Math.sin(angle) * r;
+      node.amount = 1;
+      node.active = true;
+      this.state.adnNodes.set(node.id, node);
+    }
+    this.broadcast('enemyKilled', { enemyId, x: enemy.x, y: enemy.y, damage: 0 });
+    this.state.enemies.delete(enemyId);
   }
 
   private _broadcastGameOver(data: { win: boolean; reason?: string }): void {

@@ -1,4 +1,4 @@
-export const CARGO_COST = 30;
+export const CARGO_COST = 55;  // same as T1 craft — now a real tradeoff
 export const CRAFT_TIME = 1.0;
 export const SEAL_TIME = 1.3;
 export const REVIVE_TIME = 5.0;

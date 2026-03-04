@@ -13,22 +13,17 @@ function dist(ax: number, ay: number, bx: number, by: number): number {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-function findTarget(enemy: EnemyState, state: GameState): PlayerState | null {
+function findTarget(enemy: EnemyState, state: GameState, ignoreHub: boolean): PlayerState | null {
   let target: PlayerState | null = null;
   let bestDist = Infinity;
 
   state.players.forEach((player) => {
     if (player.isDown) return;
+    if (ignoreHub && inZone('hub', player.x, player.y)) return;
     const d = dist(enemy.x, enemy.y, player.x, player.y);
-    if (player.isCarrying && (target === null || !target.isCarrying || d < bestDist)) {
-      target = player;
+    if (d < bestDist) {
       bestDist = d;
-    } else if (!player.isCarrying && target === null) {
       target = player;
-      bestDist = d;
-    } else if (!player.isCarrying && target !== null && !target.isCarrying && d < bestDist) {
-      target = player;
-      bestDist = d;
     }
   });
 
@@ -42,16 +37,10 @@ export function tickTankBehavior(
   damageSystem: DamageSystem
 ): void {
   // Tank ignores knockback — flag is set on spawn, no extra logic needed here
-  const target = findTarget(enemy, state);
+  const ignoreHub = state.timers.runTime < HUB_SAFE_DURATION;
+  const target = findTarget(enemy, state, ignoreHub);
 
   if (!target) {
-    enemy.behaviorState = 'IDLE';
-    return;
-  }
-
-  // During the first 5 minutes, enemies don't enter the hub.
-  // If the target is inside the hub, go idle.
-  if (state.timers.runTime < HUB_SAFE_DURATION && inZone('hub', target.x, target.y)) {
     enemy.behaviorState = 'IDLE';
     return;
   }

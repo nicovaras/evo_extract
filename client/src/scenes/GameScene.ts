@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import Phaser from 'phaser';
 import * as Colyseus from 'colyseus.js';
 import { NetworkClient } from '../network/ColyseusClient';
@@ -12,8 +13,9 @@ import { ToxicZone } from '../objects/ToxicZone';
 import { CombatFX } from '../fx/CombatFX';
 import { CraftingPanel } from '../ui/CraftingPanel';
 import { AdnNodeSprite } from '../objects/AdnNodeSprite';
-import { SEAL_TIME } from '@evo/shared';
+import { SEAL_TIME, CARGO_COST } from '@evo/shared';
 import { getWalls, getZone, inZone, getMapData } from '../mapData';
+import { SPRITE_WALL_VARIANTS } from '../assets/spriteKeys';
 import { AudioManager } from '../audio/AudioManager';
 import { OnboardingSystem } from '../ui/OnboardingSystem';
 import { HoldProgressBar } from '../fx/HoldProgressBar';
@@ -210,13 +212,14 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
       if (!ptr.leftButtonDown()) return;
       const serverMe = this.room?.state?.players?.get(this.room.sessionId);
-      if (serverMe?.isRanged) this._tryShoot(); else this._tryMelee();
+      if (serverMe?.isRanged) this._tryShoot();
+      else this._tryMelee();
     });
 
     // ── Audio & Onboarding ─────────────────────────────────────────────────────
     this.audio = new AudioManager();
     this.onboarding = new OnboardingSystem(this);
-    this.onboarding.showWelcome();
+    // onboarding disabled
 
     // ── Ready overlay ──────────────────────────────────────────────────────────
     this._setupReadyOverlay();
@@ -254,16 +257,13 @@ export class GameScene extends Phaser.Scene {
       let dx = input.dx;
       let dy = input.dy;
       const len = Math.sqrt(dx * dx + dy * dy);
-      if (len > 0) { dx /= len; dy /= len; }
+      if (len > 0) {
+        dx /= len;
+        dy /= len;
+      }
       const targetVx = dx * BASE_SPEED * speedMult * carryMult;
       const targetVy = dy * BASE_SPEED * speedMult * carryMult;
-      // Lerp velocity for smoother acceleration (reduces abrupt starts/stops)
-      const acc = 0.25;
-      const body = this.player.body as Phaser.Physics.Arcade.Body;
-      body.setVelocity(
-        Phaser.Math.Linear(body.velocity.x, targetVx, acc),
-        Phaser.Math.Linear(body.velocity.y, targetVy, acc)
-      );
+      this.player.setVelocity(targetVx, targetVy);
       this.player.setRotation(input.facing);
     }
 
@@ -288,15 +288,32 @@ export class GameScene extends Phaser.Scene {
     this.hud.update(this.room.sessionId);
 
     // ── Server reconcile ──────────────────────────────────────────────────────
+    // Client-side prediction: only hard-snap when the server disagrees significantly.
+    // For small diffs, gently lerp — this hides network latency for the local player.
+    const RECONCILE_SNAP_THRESHOLD = 120; // px — hard snap if too far off
+    const RECONCILE_LERP = 0.12; // gentle correction factor per frame
     const serverPlayer = this.room.state.players.get(this.room.sessionId);
     if (serverPlayer) {
-      // Reconcilar con servidor solo si el destino no está dentro de una pared
-      const targetX = Phaser.Math.Linear(this.player.x, serverPlayer.x, 0.15);
-      const targetY = Phaser.Math.Linear(this.player.y, serverPlayer.y, 0.15);
-      const inWall = getWalls().some(w => targetX >= w.x && targetX <= w.x + w.w && targetY >= w.y && targetY <= w.y + w.h);
+      const inWall = getWalls().some(
+        (w) =>
+          serverPlayer.x >= w.x &&
+          serverPlayer.x <= w.x + w.w &&
+          serverPlayer.y >= w.y &&
+          serverPlayer.y <= w.y + w.h
+      );
       if (!inWall) {
-        this.player.x = targetX;
-        this.player.y = targetY;
+        const diffX = serverPlayer.x - this.player.x;
+        const diffY = serverPlayer.y - this.player.y;
+        const dist = Math.sqrt(diffX * diffX + diffY * diffY);
+        if (dist > RECONCILE_SNAP_THRESHOLD) {
+          // Too far off — hard snap
+          this.player.x = serverPlayer.x;
+          this.player.y = serverPlayer.y;
+        } else if (dist > 2) {
+          // Small drift — nudge gently toward server
+          this.player.x += diffX * RECONCILE_LERP;
+          this.player.y += diffY * RECONCILE_LERP;
+        }
       }
 
       // Sync visual body position + rotation
@@ -332,29 +349,60 @@ export class GameScene extends Phaser.Scene {
       const eDown = this.eKey?.isDown ?? false;
 
       // Toggle crafting panel with E (JustDown) when in hub
-      if (inHub && eJustDown) {
+      if (inHub && eJustDown && this.gameHasStarted) {
         this.craftingPanel.toggle();
       }
 
       // Seal cargo hold (F held, in hub, panel closed, has enough ADN)
-      if (this.fKey.isDown && inHub && !this.craftingPanel.isVisible() && !serverPlayer.isCarrying && serverPlayer.adn < 30) {
+      const currentSealCost = CARGO_COST + (this.room.state.timers?.cargoSealed ?? 0) * 10;
+      if (
+        this.fKey.isDown &&
+        inHub &&
+        !this.craftingPanel.isVisible() &&
+        !serverPlayer.isCarrying &&
+        serverPlayer.adn < currentSealCost
+      ) {
         // No tiene ADN suficiente — mostrar hint (una vez por segundo)
         if (this.sealHoldStart === null) {
           this.sealHoldStart = now; // reuse para throttle
-          const txt = this.add.text(serverPlayer.x, serverPlayer.y - 20, `ADN insuficiente (${serverPlayer.adn}/30)`, {
-            fontSize: '13px', color: '#ff8800', fontFamily: 'monospace',
-            backgroundColor: '#00000088', padding: { x: 6, y: 3 },
-          }).setOrigin(0.5).setDepth(50);
-          this.tweens.add({ targets: txt, y: serverPlayer.y - 60, alpha: 0, duration: 1500, onComplete: () => txt.destroy() });
+          const txt = this.add
+            .text(
+              serverPlayer.x,
+              serverPlayer.y - 20,
+              `ADN insuficiente (${serverPlayer.adn}/${currentSealCost})`,
+              {
+                fontSize: '13px',
+                color: '#ff8800',
+                fontFamily: 'monospace',
+                backgroundColor: '#00000088',
+                padding: { x: 6, y: 3 },
+              }
+            )
+            .setOrigin(0.5)
+            .setDepth(50);
+          this.tweens.add({
+            targets: txt,
+            y: serverPlayer.y - 60,
+            alpha: 0,
+            duration: 1500,
+            onComplete: () => txt.destroy(),
+          });
         }
-      } else if (this.fKey.isDown && inHub && !this.craftingPanel.isVisible() && !serverPlayer.isCarrying && serverPlayer.adn >= 30) {
+      } else if (
+        this.fKey.isDown &&
+        inHub &&
+        !this.craftingPanel.isVisible() &&
+        !serverPlayer.isCarrying &&
+        serverPlayer.adn >= currentSealCost
+      ) {
         if (this.sealHoldStart === null) {
           this.sealHoldStart = now;
           this.sealInProgress = true;
           this.sealProgressBar = new HoldProgressBar(this, 'Sellando...');
         } else if (
           this.sealInProgress &&
-          now - this.sealHoldStart >= (SEAL_TIME / ((serverPlayer as any).interactSpeed ?? 1.0)) * 1000 &&
+          now - this.sealHoldStart >=
+            (SEAL_TIME / ((serverPlayer as any).interactSpeed ?? 1.0)) * 1000 &&
           now - this.lastSealSent > 2000
         ) {
           this.sealInProgress = false;
@@ -364,7 +412,11 @@ export class GameScene extends Phaser.Scene {
           this.room.send('sealCargo', {});
         }
         if (this.sealInProgress && this.sealProgressBar && this.sealHoldStart !== null) {
-          this.sealProgressBar.update(this.player.x, this.player.y, (now - this.sealHoldStart) / (SEAL_TIME * 1000));
+          this.sealProgressBar.update(
+            this.player.x,
+            this.player.y,
+            (now - this.sealHoldStart) / (SEAL_TIME * 1000)
+          );
         }
       } else if (!this.fKey.isDown || !inHub || this.craftingPanel.isVisible()) {
         this.sealHoldStart = null;
@@ -381,15 +433,21 @@ export class GameScene extends Phaser.Scene {
           if (sid === this.room.sessionId || !p.isDown) return;
           const dx = this.player.x - p.x;
           const dy = this.player.y - p.y;
-          const d = Math.sqrt(dx*dx + dy*dy);
-          if (d < nearestDist) { nearestDist = d; nearestDowned = sid; }
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearestDowned = sid;
+          }
         });
         if (nearestDowned && !this.reviveTarget) {
           this.reviveTarget = nearestDowned;
           this.room.send('startRevive', { targetId: nearestDowned });
         }
         if (this.reviveTarget && this.reviveProgressBar) {
-          const reviveProgress = Math.min(1, (Date.now() - this.reviveStartTime) / this.reviveDuration);
+          const reviveProgress = Math.min(
+            1,
+            (Date.now() - this.reviveStartTime) / this.reviveDuration
+          );
           this.reviveProgressBar.update(this.player.x, this.player.y, reviveProgress);
         }
       } else if (!this.rKey.isDown && this.reviveTarget) {
@@ -407,8 +465,13 @@ export class GameScene extends Phaser.Scene {
       this.wasExtracting = isExtracting;
 
       this.onboarding.update(
-        { adn: serverPlayer.adn, x: serverPlayer.x, y: serverPlayer.y, isCarrying: serverPlayer.isCarrying },
-        { cargoDelivered: this.room.state.cargoDelivered ?? 0, timers: { isExtracting } },
+        {
+          adn: serverPlayer.adn,
+          x: serverPlayer.x,
+          y: serverPlayer.y,
+          isCarrying: serverPlayer.isCarrying,
+        },
+        { cargoDelivered: this.room.state.cargoDelivered ?? 0, timers: { isExtracting } }
       );
     }
 
@@ -440,16 +503,32 @@ export class GameScene extends Phaser.Scene {
     const g = this.add.graphics();
 
     // Background: tiled floor texture
-    this.add.tileSprite(0, 0, WORLD_SIZE, WORLD_SIZE, 'bg_floor')
+    this.add
+      .tileSprite(0, 0, WORLD_SIZE, WORLD_SIZE, 'bg_floor')
       .setOrigin(0, 0)
-      .setDepth(0);
+      .setDepth(0)
+      .setTint(0x8ab89a); // slight greenish tint for lab feel
+
+    // Second floor layer: rotated + offset to break tile repetition
+    this.add
+      .tileSprite(0, 0, WORLD_SIZE * 1.5, WORLD_SIZE * 1.5, 'bg_floor')
+      .setOrigin(0, 0)
+      .setDepth(0)
+      .setTilePosition(180, 180)
+      .setAlpha(0.18)
+      .setTint(0x446644)
+      .setAngle(22);
 
     // Draw zones from map JSON
     const zoneStyles: Record<string, { color: number; label: string; textColor: string }> = {
-      hub:        { color: 0x1a4a1a, label: 'HUB\nE → Evolucionar\nF → Sellar Carga', textColor: '#2aff6a' },
-      zoneA:      { color: 0x4a1a1a, label: 'ZONA A\nFarm rápido',                    textColor: '#ff4a4a' },
-      zoneB:      { color: 0x1a1a4a, label: 'ZONA B\nTransporte estable',              textColor: '#4a8aff' },
-      extraction: { color: 0x4a4a00, label: 'EXTRACCIÓN\nEntregá aquí',               textColor: '#ffff44' },
+      hub: {
+        color: 0x1a4a1a,
+        label: '\nHUB\nE → Evolucionar\nF → Sellar Carga',
+        textColor: '#2aff6a',
+      },
+      zoneA: { color: 0x4a1a1a, label: '', textColor: '#ff4a4a' },
+      zoneB: { color: 0x1a1a4a, label: '', textColor: '#4a8aff' },
+      extraction: { color: 0x4a4a00, label: 'EXTRACCIÓN\nEntregá aquí', textColor: '#ffff44' },
     };
     // ── Zone overlays (depth 1, above floor) ─────────────────────────────────
     const zoneG = this.add.graphics().setDepth(1);
@@ -458,15 +537,17 @@ export class GameScene extends Phaser.Scene {
       if (!style) continue;
 
       // Filled tint — subtle, mostly transparent
-      zoneG.fillStyle(style.color, 0.18);
+      zoneG.fillStyle(style.color, 0.5);
       zoneG.fillRect(zone.x, zone.y, zone.w, zone.h);
 
       // Solid border so the boundary is unmistakable
       zoneG.lineStyle(3, style.color, 0.85);
       zoneG.strokeRect(zone.x, zone.y, zone.w, zone.h);
 
-      // Zone label (centered, slightly above middle so it doesn't fight with player)
-      this._label(zone.x + zone.w / 2, zone.y + 28, style.label, style.textColor);
+      // Zone label (only for hub and extraction)
+      if (style.label) {
+        this._label(zone.x + zone.w / 2, zone.y + 50, style.label, style.textColor);
+      }
     }
 
     // Grid (very faint, above floor below zones)
@@ -478,7 +559,8 @@ export class GameScene extends Phaser.Scene {
     // ── Static walls ───────────────────────────────────────────────────────
     this.wallGroup = this.physics.add.staticGroup();
     for (const w of getWalls()) {
-      const wallRect = this.add.tileSprite(w.x, w.y, w.w, w.h, 'wall').setOrigin(0, 0);
+      const wallKey = SPRITE_WALL_VARIANTS[Math.floor(Math.random() * SPRITE_WALL_VARIANTS.length)];
+      const wallRect = this.add.tileSprite(w.x, w.y, w.w, w.h, wallKey).setOrigin(0, 0);
       wallRect.setDepth(2);
       this.physics.add.existing(wallRect, true);
       this.wallGroup.add(wallRect);
@@ -489,11 +571,23 @@ export class GameScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const x = cam.scrollX + cam.width / 2;
     const y = cam.scrollY + cam.height * 0.2;
-    const txt = this.add.text(x, y, message, {
-      fontSize: '15px', color, fontFamily: 'monospace',
-      backgroundColor: '#00000099', padding: { x: 10, y: 5 },
-    }).setOrigin(0.5).setDepth(200);
-    this.tweens.add({ targets: txt, y: y - 40, alpha: 0, duration: 2000, onComplete: () => txt.destroy() });
+    const txt = this.add
+      .text(x, y, message, {
+        fontSize: '15px',
+        color,
+        fontFamily: 'monospace',
+        backgroundColor: '#00000099',
+        padding: { x: 10, y: 5 },
+      })
+      .setOrigin(0.5)
+      .setDepth(200);
+    this.tweens.add({
+      targets: txt,
+      y: y - 40,
+      alpha: 0,
+      duration: 2000,
+      onComplete: () => txt.destroy(),
+    });
   }
 
   private _label(x: number, y: number, text: string, color: string): void {
@@ -517,7 +611,13 @@ export class GameScene extends Phaser.Scene {
     this.room.state.players.onAdd((playerState: any, sessionId: string) => {
       if (sessionId === this.room.sessionId) return;
 
-      const body = new PlayerBody(this, playerState.x as number, playerState.y as number, 0x4488ff, 10);
+      const body = new PlayerBody(
+        this,
+        playerState.x as number,
+        playerState.y as number,
+        0x4488ff,
+        10
+      );
 
       const remote: RemotePlayer = {
         body,
@@ -533,7 +633,8 @@ export class GameScene extends Phaser.Scene {
           rp.targetX = playerState.x as number;
           rp.targetY = playerState.y as number;
           const ids: string[] = [];
-          for (let i = 0; i < playerState.equippedParts.length; i++) ids.push(playerState.equippedParts[i]);
+          for (let i = 0; i < playerState.equippedParts.length; i++)
+            ids.push(playerState.equippedParts[i]);
           rp.body.updateEquipped(ids);
         }
       });
@@ -620,33 +721,61 @@ export class GameScene extends Phaser.Scene {
 
   private _setupServerMessages(): void {
     // Seal result
-    this.room.onMessage('sealResult', (msg: { success: boolean; cargoId?: string; reason?: string; cost?: number; nextCost?: number }) => {
-      const serverPlayer = this.room.state.players.get(this.room.sessionId);
-      const px = serverPlayer?.x ?? this.player.x;
-      const py = serverPlayer?.y ?? this.player.y;
-      if (msg.success) {
-        this.sealFX.showSealSuccess(px, py);
-        if (msg.nextCost) this.showToast(`Próxima carga: ${msg.nextCost} ADN`, '#ffdd44');
-      } else if (msg.reason) {
-        const reasonMap: Record<string, string> = {
-          insufficient_adn: `ADN insuficiente (necesitás ${msg.cost ?? '?'})`,
-          not_in_hub:       'Tenés que estar en el Hub',
-          already_carrying: 'Ya llevás una carga',
-          rate_limited:     'Esperá un momento',
-        };
-        const label = reasonMap[msg.reason] ?? msg.reason;
-        const txt = this.add.text(px, py - 20, `✗ ${label}`, {
-          fontSize: '13px', color: '#ff4444', fontFamily: 'monospace',
-          backgroundColor: '#00000088', padding: { x: 6, y: 3 },
-        }).setOrigin(0.5).setDepth(50);
-        this.tweens.add({ targets: txt, y: py - 60, alpha: 0, duration: 2200, onComplete: () => txt.destroy() });
+    this.room.onMessage(
+      'sealResult',
+      (msg: {
+        success: boolean;
+        cargoId?: string;
+        reason?: string;
+        cost?: number;
+        nextCost?: number;
+      }) => {
+        const serverPlayer = this.room.state.players.get(this.room.sessionId);
+        const px = serverPlayer?.x ?? this.player.x;
+        const py = serverPlayer?.y ?? this.player.y;
+        if (msg.success) {
+          this.sealFX.showSealSuccess(px, py);
+          if (msg.nextCost) this.showToast(`Próxima carga: ${msg.nextCost} ADN`, '#ffdd44');
+        } else if (msg.reason) {
+          const reasonMap: Record<string, string> = {
+            insufficient_adn: `ADN insuficiente (necesitás ${msg.cost ?? '?'})`,
+            not_in_hub: 'Tenés que estar en el Hub',
+            already_carrying: 'Ya llevás una carga',
+            rate_limited: 'Esperá un momento',
+          };
+          const label = reasonMap[msg.reason] ?? msg.reason;
+          const txt = this.add
+            .text(px, py - 20, `✗ ${label}`, {
+              fontSize: '13px',
+              color: '#ff4444',
+              fontFamily: 'monospace',
+              backgroundColor: '#00000088',
+              padding: { x: 6, y: 3 },
+            })
+            .setOrigin(0.5)
+            .setDepth(50);
+          this.tweens.add({
+            targets: txt,
+            y: py - 60,
+            alpha: 0,
+            duration: 2200,
+            onComplete: () => txt.destroy(),
+          });
+        }
       }
-    });
+    );
 
     // Game over
-    this.room.onMessage('gameOver', (msg: { win: boolean; reason?: 'wipe' | 'timeout'; stats?: { runTime: number; cargoDelivered: number } }) => {
-      this.overlay.show(msg);
-    });
+    this.room.onMessage(
+      'gameOver',
+      (msg: {
+        win: boolean;
+        reason?: 'wipe' | 'timeout';
+        stats?: { runTime: number; cargoDelivered: number };
+      }) => {
+        this.overlay.show(msg);
+      }
+    );
 
     // ADN pickup
     this.room.onMessage('adnPickup', () => {
@@ -660,12 +789,14 @@ export class GameScene extends Phaser.Scene {
       // Listen for equippedParts changes on local player
       playerState.equippedParts.onChange(() => {
         const ids: string[] = [];
-        for (let i = 0; i < playerState.equippedParts.length; i++) ids.push(playerState.equippedParts[i]);
+        for (let i = 0; i < playerState.equippedParts.length; i++)
+          ids.push(playerState.equippedParts[i]);
         this.localBody.updateEquipped(ids);
       });
       // Also apply current state immediately (on reconnect)
       const ids: string[] = [];
-      for (let i = 0; i < playerState.equippedParts.length; i++) ids.push(playerState.equippedParts[i]);
+      for (let i = 0; i < playerState.equippedParts.length; i++)
+        ids.push(playerState.equippedParts[i]);
       this.localBody.updateEquipped(ids);
     });
 
@@ -674,51 +805,65 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Player hit by enemy or toxic
-    this.room.onMessage('playerHit', (msg: { sessionId?: string; damage: number; source?: string; hp: number; maxHp: number; knockbackX?: number; knockbackY?: number }) => {
-      // Determine which player was hit
-      const isLocalPlayer = !msg.sessionId || msg.sessionId === this.room.sessionId;
-      let px: number;
-      let py: number;
+    this.room.onMessage(
+      'playerHit',
+      (msg: {
+        sessionId?: string;
+        damage: number;
+        source?: string;
+        hp: number;
+        maxHp: number;
+        knockbackX?: number;
+        knockbackY?: number;
+      }) => {
+        // Determine which player was hit
+        const isLocalPlayer = !msg.sessionId || msg.sessionId === this.room.sessionId;
+        let px: number;
+        let py: number;
 
-      if (isLocalPlayer) {
-        const serverPlayer = this.room.state.players.get(this.room.sessionId);
-        px = serverPlayer?.x ?? this.player.x;
-        py = serverPlayer?.y ?? this.player.y;
-        this.audio.playHurt();
-        // Apply knockback visual
-        if (msg.knockbackX || msg.knockbackY) {
-          this.player.setVelocity(
-            this.player.body.velocity.x + (msg.knockbackX ?? 0) * 8,
-            this.player.body.velocity.y + (msg.knockbackY ?? 0) * 8
-          );
+        if (isLocalPlayer) {
+          const serverPlayer = this.room.state.players.get(this.room.sessionId);
+          px = serverPlayer?.x ?? this.player.x;
+          py = serverPlayer?.y ?? this.player.y;
+          this.audio.playHurt();
+          // Apply knockback visual
+          if (msg.knockbackX || msg.knockbackY) {
+            this.player.setVelocity(
+              this.player.body.velocity.x + (msg.knockbackX ?? 0) * 8,
+              this.player.body.velocity.y + (msg.knockbackY ?? 0) * 8
+            );
+          }
+        } else {
+          const remote = this.remotePlayers.get(msg.sessionId!);
+          if (!remote) return; // unknown player, ignore
+          px = remote.body.container.x;
+          py = remote.body.container.y;
         }
-      } else {
-        const remote = this.remotePlayers.get(msg.sessionId!);
-        if (!remote) return; // unknown player, ignore
-        px = remote.body.container.x;
-        py = remote.body.container.y;
-      }
 
-      if (msg.source === 'toxic') {
-        CombatFX.showToxicHit(this, px, py);
-      } else {
-        CombatFX.showPlayerHit(this, px, py);
+        if (msg.source === 'toxic') {
+          CombatFX.showToxicHit(this, px, py);
+        } else {
+          CombatFX.showPlayerHit(this, px, py);
+        }
+        // Show floating damage number in red
+        if (msg.damage > 0) {
+          CombatFX.showHitNumber(this, px, py - 10, msg.damage, false, '#ff4444');
+        }
       }
-      // Show floating damage number in red
-      if (msg.damage > 0) {
-        CombatFX.showHitNumber(this, px, py - 10, msg.damage, false, '#ff4444');
-      }
-    });
+    );
 
     // Revive progress bar messages
-    this.room.onMessage('reviveStarted', (msg: { reviverId: string; targetId: string; duration: number }) => {
-      if (msg.reviverId === this.room.sessionId) {
-        this.reviveProgressBar?.destroy();
-        this.reviveProgressBar = new HoldProgressBar(this, 'Reviviendo...');
-        this.reviveStartTime = Date.now();
-        this.reviveDuration = msg.duration;
+    this.room.onMessage(
+      'reviveStarted',
+      (msg: { reviverId: string; targetId: string; duration: number }) => {
+        if (msg.reviverId === this.room.sessionId) {
+          this.reviveProgressBar?.destroy();
+          this.reviveProgressBar = new HoldProgressBar(this, 'Reviviendo...');
+          this.reviveStartTime = Date.now();
+          this.reviveDuration = msg.duration;
+        }
       }
-    });
+    );
 
     this.room.onMessage('reviveCancelled', (msg: { reviverId: string }) => {
       if (msg.reviverId === this.room.sessionId) {
@@ -727,27 +872,46 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    this.room.onMessage('reviveComplete', (msg: { reviverId: string; targetId: string; hp: number }) => {
-      if (msg.reviverId === this.room.sessionId) {
-        this.reviveProgressBar?.destroy();
-        this.reviveProgressBar = undefined;
-        this.reviveTarget = null;
+    this.room.onMessage(
+      'reviveComplete',
+      (msg: { reviverId: string; targetId: string; hp: number }) => {
+        if (msg.reviverId === this.room.sessionId) {
+          this.reviveProgressBar?.destroy();
+          this.reviveProgressBar = undefined;
+          this.reviveTarget = null;
+        }
       }
-    });
+    );
 
-    // Enemy killed confirmation
-    this.room.onMessage('enemyKilled', (msg: { enemyId: string; x: number; y: number; damage: number }) => {
+    // Per-hit damage numbers (melee + ranged, with crit)
+    this.room.onMessage(
+      'enemyHit',
+      (msg: {
+        x: number;
+        y: number;
+        damage: number;
+        isCrit: boolean;
+        killed: boolean;
+        enemyId: string;
+      }) => {
+        if (!msg.killed) {
+          CombatFX.showHitNumber(this, msg.x, msg.y - 10, msg.damage, msg.isCrit);
+        }
+      }
+    );
+
+    // Enemy killed — play death FX (damage number shown by enemyHit)
+    this.room.onMessage('enemyKilled', (msg: { enemyId: string; x: number; y: number }) => {
       this.audio.playEnemyDeath();
       CombatFX.showEnemyDeath(this, msg.x, msg.y);
-      CombatFX.showHitNumber(this, msg.x, msg.y - 20, msg.damage, false);
     });
 
     // Toxic zones initial update
-    this.room.onMessage('potionUsed',    (msg: { hp: number; potions: number }) => {
+    this.room.onMessage('potionUsed', (msg: { hp: number; potions: number }) => {
       this.showToast(`💊 +60 HP  (${msg.potions} left)`, '#88ff88');
     });
-    this.room.onMessage('potionEmpty',   () => this.showToast('💊 Sin pociones', '#ff8844'));
-    this.room.onMessage('potionFull',    () => this.showToast('💊 Ya tenés HP máximo', '#aaaaaa'));
+    this.room.onMessage('potionEmpty', () => this.showToast('💊 Sin pociones', '#ff8844'));
+    this.room.onMessage('potionFull', () => this.showToast('💊 Ya tenés HP máximo', '#aaaaaa'));
     this.room.onMessage('potionDropped', (msg: { potions: number }) => {
       this.showToast(`💊 ¡Poción del boss! (${msg.potions} total)`, '#ffff44');
     });
@@ -759,27 +923,50 @@ export class GameScene extends Phaser.Scene {
       this.showToast(`T — cooldown ${msg.cooldownLeft}s`, '#f84');
     });
 
-    this.room.onMessage('toxicZonesUpdate', (msg: { zones: Array<{ id: string; x: number; y: number; width: number; height: number; activatesAt: string; active: boolean }> }) => {
-      for (const z of msg.zones) {
-        if (!this.toxicZones.has(z.id)) {
-          const zone = new ToxicZone(this, z);
-          this.toxicZones.set(z.id, zone);
-          if (z.active) zone.activate(false);
+    this.room.onMessage(
+      'toxicZonesUpdate',
+      (msg: {
+        zones: Array<{
+          id: string;
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          activatesAt: string;
+          active: boolean;
+        }>;
+      }) => {
+        for (const z of msg.zones) {
+          if (!this.toxicZones.has(z.id)) {
+            const zone = new ToxicZone(this, z);
+            this.toxicZones.set(z.id, zone);
+            if (z.active) zone.activate(false);
+          }
         }
       }
-    });
+    );
 
     // Toxic zone activated
-    this.room.onMessage('toxicZoneActivated', (msg: { id: string; x?: number; y?: number; width?: number; height?: number }) => {
-      if (this.toxicZones.has(msg.id)) {
-        this.toxicZones.get(msg.id)!.activate(true);
-      } else if (msg.x !== undefined) {
-        // Zona nueva generada dinámicamente
-        const zone = new ToxicZone(this, { id: msg.id, x: msg.x, y: msg.y!, width: msg.width!, height: msg.height!, active: true });
-        this.toxicZones.set(msg.id, zone);
-        zone.activate(false); // ya activa, sin animación de fade
+    this.room.onMessage(
+      'toxicZoneActivated',
+      (msg: { id: string; x?: number; y?: number; width?: number; height?: number }) => {
+        if (this.toxicZones.has(msg.id)) {
+          this.toxicZones.get(msg.id)!.activate(true);
+        } else if (msg.x !== undefined) {
+          // Zona nueva generada dinámicamente
+          const zone = new ToxicZone(this, {
+            id: msg.id,
+            x: msg.x,
+            y: msg.y!,
+            width: msg.width!,
+            height: msg.height!,
+            active: true,
+          });
+          this.toxicZones.set(msg.id, zone);
+          zone.activate(false); // ya activa, sin animación de fade
+        }
       }
-    });
+    );
   }
 
   // ─── Ready Overlay ────────────────────────────────────────────────────────────
@@ -793,18 +980,24 @@ export class GameScene extends Phaser.Scene {
     bg.setScrollFactor(0);
 
     const roomCode = NetworkClient.getInstance().getRoomCode() || this.room.roomId || '';
-    const titleText = this.add.text(cx, cy - 80, `Sala: ${roomCode}`, {
-      fontSize: '28px',
-      color: '#ffffff',
-      fontFamily: 'monospace',
-      fontStyle: 'bold',
-    }).setOrigin(0.5).setScrollFactor(0);
+    const titleText = this.add
+      .text(cx, cy - 80, `Sala: ${roomCode}`, {
+        fontSize: '28px',
+        color: '#ffffff',
+        fontFamily: 'monospace',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
 
-    this.readyCountText = this.add.text(cx, cy - 30, '0/0 listos', {
-      fontSize: '20px',
-      color: '#aaffaa',
-      fontFamily: 'monospace',
-    }).setOrigin(0.5).setScrollFactor(0);
+    this.readyCountText = this.add
+      .text(cx, cy - 30, '0/0 listos', {
+        fontSize: '20px',
+        color: '#aaffaa',
+        fontFamily: 'monospace',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
 
     const tutorialLines = [
       '🧬 OBJETIVO: Sellar 8 Cargas y extraerlas',
@@ -818,25 +1011,42 @@ export class GameScene extends Phaser.Scene {
       '⚠️  El mapa colapsa con el tiempo. ¡Escapá antes de 13:00!',
     ].join('\n');
 
-    const tutorialText = this.add.text(cx, cy + 20, tutorialLines, {
-      fontSize: '13px',
-      color: '#aaaaaa',
-      fontFamily: 'monospace',
-      align: 'center',
-      lineSpacing: 4,
-    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(200);
+    const tutorialText = this.add
+      .text(cx, cy + 20, tutorialLines, {
+        fontSize: '13px',
+        color: '#aaaaaa',
+        fontFamily: 'monospace',
+        align: 'center',
+        lineSpacing: 4,
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(200);
 
     const tutorialHeight = tutorialText.height + 20;
 
-    const btnBg = this.add.rectangle(cx, cy + 30 + tutorialHeight, 180, 50, 0x22aa55).setScrollFactor(0).setInteractive({ useHandCursor: true });
-    const btnText = this.add.text(cx, cy + 30 + tutorialHeight, 'Listo ✓', {
-      fontSize: '22px',
-      color: '#ffffff',
-      fontFamily: 'monospace',
-      fontStyle: 'bold',
-    }).setOrigin(0.5).setScrollFactor(0);
+    const btnBg = this.add
+      .rectangle(cx, cy + 30 + tutorialHeight, 180, 50, 0x22aa55)
+      .setScrollFactor(0)
+      .setInteractive({ useHandCursor: true });
+    const btnText = this.add
+      .text(cx, cy + 30 + tutorialHeight, 'Listo ✓', {
+        fontSize: '22px',
+        color: '#ffffff',
+        fontFamily: 'monospace',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
 
-    this.readyOverlay = this.add.container(0, 0, [bg, titleText, this.readyCountText, tutorialText, btnBg, btnText]);
+    this.readyOverlay = this.add.container(0, 0, [
+      bg,
+      titleText,
+      this.readyCountText,
+      tutorialText,
+      btnBg,
+      btnText,
+    ]);
     this.readyOverlay.setDepth(200);
     this.readyOverlay.setScrollFactor(0);
 
@@ -886,7 +1096,10 @@ export class GameScene extends Phaser.Scene {
   private lastMeleeTime = 0;
   private _tryMelee(): void {
     const now = Date.now();
-    if (now - this.lastMeleeTime < 600) return;
+    const serverMe = this.room?.state?.players?.get(this.room.sessionId);
+    const attackRate = serverMe?.attackRate ?? 1.0;
+    const meleeCooldown = Math.round(600 / attackRate);
+    if (now - this.lastMeleeTime < meleeCooldown) return;
     this.lastMeleeTime = now;
 
     const facing = this.player.rotation;
@@ -897,19 +1110,33 @@ export class GameScene extends Phaser.Scene {
     // Visual slash effect
     const slashX = this.player.x + vx * 50;
     const slashY = this.player.y + vy * 50;
-    const slash = this.add.text(slashX, slashY, '⚔', { fontSize: '24px' })
-      .setOrigin(0.5).setDepth(20).setRotation(facing);
-    this.tweens.add({ targets: slash, scaleX: 2, scaleY: 2, alpha: 0, duration: 300, onComplete: () => slash.destroy() });
+    const slash = this.add
+      .text(slashX, slashY, '⚔', { fontSize: '24px' })
+      .setOrigin(0.5)
+      .setDepth(20)
+      .setRotation(facing);
+    this.tweens.add({
+      targets: slash,
+      scaleX: 2,
+      scaleY: 2,
+      alpha: 0,
+      duration: 300,
+      onComplete: () => slash.destroy(),
+    });
   }
 
   private _tryShoot(): void {
     const now = Date.now();
-    if (now - this.lastFireTime < FIRE_RATE_MS) return;
+    const serverMe2 = this.room?.state?.players?.get(this.room.sessionId);
+    const fireRate = serverMe2?.attackRate ?? 1.0;
+    const fireCooldown = Math.round(FIRE_RATE_MS / fireRate);
+    if (now - this.lastFireTime < fireCooldown) return;
     this.lastFireTime = now;
 
-    const bullet = this.bullets.get(this.player.x, this.player.y) as
-      | Phaser.Types.Physics.Arcade.ImageWithDynamicBody
-      | null;
+    const bullet = this.bullets.get(
+      this.player.x,
+      this.player.y
+    ) as Phaser.Types.Physics.Arcade.ImageWithDynamicBody | null;
     if (!bullet) return;
 
     bullet.setActive(true).setVisible(true).setDepth(9);
@@ -926,7 +1153,10 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.audio.playShoot();
-    this.room.send('shoot', { vx: Math.cos(this.player.rotation), vy: Math.sin(this.player.rotation) });
+    this.room.send('shoot', {
+      vx: Math.cos(this.player.rotation),
+      vy: Math.sin(this.player.rotation),
+    });
   }
 
   shutdown(): void {

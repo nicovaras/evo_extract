@@ -1,35 +1,18 @@
 import { SPRITE_PLAYER, SPRITE_PARTS } from '../assets/spriteKeys';
+import { getPartById } from '@evo/shared';
 
 export type PartSlot = 'Head' | 'Arms' | 'Legs' | 'Torso' | 'Ranged';
 
-
-
 // ── Slot layout: offset + size relative to body center ───────────────────────
 // Body center is at (0,0). Body itself is 32×32.
-const SLOT_LAYOUT: Record<PartSlot, { x: number; y: number; w: number; h: number; label: string }> = {
-  Head:   { x:  0,  y: -24, w: 20, h: 12, label: '▲' },   // above
-  Arms:   { x: -26, y:   0, w: 12, h: 20, label: '◀' },   // left
-  Torso:  { x:  26, y:   0, w: 12, h: 20, label: '▶' },   // right (secondary torso visual)
-  Legs:   { x:  0,  y:  24, w: 20, h: 12, label: '▼' },   // below
-  Ranged: { x:  20, y: -20, w: 10, h: 10, label: '◆' },   // top-right corner
-};
-
-// Parts table (id → slot + tier) — mirrors CraftingPanel
-const PART_SLOTS: Record<string, { slot: PartSlot; tier: string }> = {
-  garras_rapidas:      { slot: 'Arms',   tier: 'T1' },
-  martillos_oseos:     { slot: 'Arms',   tier: 'T2' },
-  latigos_tendinosos:  { slot: 'Arms',   tier: 'T3' },
-  patas_felinas:       { slot: 'Legs',   tier: 'T1' },
-  piernas_saltador:    { slot: 'Legs',   tier: 'T2' },
-  zancos_queratinosos: { slot: 'Legs',   tier: 'T3' },
-  craneo_cazador:      { slot: 'Head',   tier: 'T1' },
-  ojo_compuesto:       { slot: 'Head',   tier: 'T2' },
-  bulbo_neural:        { slot: 'Head',   tier: 'T3' },
-  caparazon_ligero:    { slot: 'Torso',  tier: 'T1' },
-  masa_muscular:       { slot: 'Torso',  tier: 'T2' },
-  nucleo_regenerativo: { slot: 'Torso',  tier: 'T3' },
-  modulo_ranged:       { slot: 'Ranged', tier: 'T1' },
-};
+const SLOT_LAYOUT: Record<PartSlot, { x: number; y: number; w: number; h: number; label: string }> =
+  {
+    Head: { x: 0, y: -16, w: 24, h: 24, label: '▲' }, // above
+    Arms: { x: 0, y: 0, w: 64, h: 20, label: '◀' }, // left
+    Torso: { x: -2, y: 0, w: 42, h: 24, label: '▶' }, // right (secondary torso visual)
+    Legs: { x: 0, y: 16, w: 32, h: 20, label: '▼' }, // below
+    Ranged: { x: 20, y: -20, w: 10, h: 10, label: '◆' }, // top-right corner
+  };
 
 export class PlayerBody {
   readonly container: Phaser.GameObjects.Container;
@@ -56,8 +39,8 @@ export class PlayerBody {
     const newSet = new Set(equippedIds);
 
     // Check if anything actually changed
-    const same = newSet.size === this._equipped.size &&
-      [...newSet].every(id => this._equipped.has(id));
+    const same =
+      newSet.size === this._equipped.size && [...newSet].every((id) => this._equipped.has(id));
     if (same) return;
 
     this._equipped = newSet;
@@ -91,13 +74,14 @@ export class PlayerBody {
     // Build new ones from equipped list
     const slotMap = new Map<PartSlot, string>(); // slot → partId (last one wins)
     for (const id of this._equipped) {
-      const def = PART_SLOTS[id];
-      if (def) slotMap.set(def.slot, id);
+      const def = getPartById(id);
+      if (def) slotMap.set(def.slot as PartSlot, id);
     }
 
     for (const [slot, partId] of slotMap) {
       const layout = SLOT_LAYOUT[slot];
       const spriteKey = SPRITE_PARTS[partId];
+      if (!spriteKey || !this.scene.textures.exists(spriteKey)) continue;
 
       const img = this.scene.add.image(0, 0, spriteKey).setDisplaySize(layout.w, layout.h);
 

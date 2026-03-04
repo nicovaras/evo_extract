@@ -11,7 +11,11 @@ export interface DamageResult {
 export class DamageSystem {
   constructor(private room: Room<GameState>) {}
 
-  applyDamageToPlayer(player: PlayerState, rawDamage: number, knockback?: { x: number; y: number }): DamageResult {
+  applyDamageToPlayer(
+    player: PlayerState,
+    rawDamage: number,
+    knockback?: { x: number; y: number }
+  ): DamageResult {
     const damage = Math.max(1, rawDamage - player.armor);
     player.hp = Math.max(0, player.hp - damage);
 
@@ -25,6 +29,7 @@ export class DamageSystem {
       player.isDown = true;
       player.hp = 0;
       player.downedAt = Date.now();
+      player.statTimesDowned += 1;
     }
 
     // Apply knockback to server-side position
@@ -58,8 +63,10 @@ export class DamageSystem {
     }
 
     enemy.hp = Math.max(0, enemy.hp - damage);
+    player.statDamageDealt += damage;
 
     if (enemy.hp <= 0) {
+      player.statKills += 1;
       return { damage, isCrit, killed: true, adnDrop: enemy.adnDrop ?? 8 };
     }
 

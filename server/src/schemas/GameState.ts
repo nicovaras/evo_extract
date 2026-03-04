@@ -1,12 +1,8 @@
-import {
-  Schema,
-  type,
-  MapSchema,
-  ArraySchema,
-} from '@colyseus/schema';
+import { Schema, type, MapSchema, ArraySchema } from '@colyseus/schema';
 
 export class PlayerState extends Schema {
   @type('string') id: string = '';
+  @type('string') name: string = 'Jugador';
   @type('number') x: number = 1000;
   @type('number') y: number = 1000;
   @type('number') hp: number = 120;
@@ -18,20 +14,28 @@ export class PlayerState extends Schema {
   @type('boolean') isCarrying: boolean = false;
   @type('boolean') isReady: boolean = false;
   @type(['string']) equippedParts: ArraySchema<string> = new ArraySchema<string>();
+  @type(['string']) assignedParts: ArraySchema<string> = new ArraySchema<string>();
   // Combat stats
   @type('number') armor: number = 2;
   @type('number') critChance: number = 0.05;
   @type('number') critMult: number = 1.6;
-  @type('number') attackDamage: number = 22;   // melee base (higher than ranged)
-  @type('boolean') isRanged: boolean = false;   // false = melee (default), true = ranged via craft
-  @type('number') meleeDamage: number = 22;     // kept in sync by CraftingSystem
+  @type('number') attackDamage: number = 22; // melee base (higher than ranged)
+  @type('boolean') isRanged: boolean = false; // false = melee (default), true = ranged via craft
+  @type('number') meleeDamage: number = 22; // kept in sync by CraftingSystem
   @type('number') lifeSteal: number = 0;
-  @type('number') attackRate: number = 1.0;    // multiplier on attack speed (1.0 = base)
-  @type('number') pickupRadius: number = 1.0;  // multiplier on pickup radius
-  @type('number') carryPenalty: number = 1.0;  // multiplier on carry speed penalty (1.0 = full penalty)
+  @type('number') attackRate: number = 1.0; // multiplier on attack speed (1.0 = base)
+  @type('number') pickupRadius: number = 1.0; // multiplier on pickup radius
+  @type('number') carryPenalty: number = 1.0; // multiplier on carry speed penalty (1.0 = full penalty)
   @type('number') interactSpeed: number = 1.0; // multiplier on interact times (1.0 = base)
-  @type('number') potions: number = 2;   // start with 2 potions
+  @type('number') potions: number = 2; // start with 2 potions
   @type('number') downedAt: number = 0;
+
+  // Run stats (accumulated during match)
+  @type('number') statAdnFarmed: number = 0;
+  @type('number') statDamageDealt: number = 0;
+  @type('number') statKills: number = 0;
+  @type('number') statCargoSealed: number = 0;
+  @type('number') statTimesDowned: number = 0;
 }
 
 export class AdnNode extends Schema {
@@ -92,7 +96,7 @@ export class GameTimers extends Schema {
   @type('number') runTime: number = 0;
   @type('string') phase: string = 'early'; // early | mid | late
   @type('number') cargoDelivered: number = 0;
-  @type('number') cargoSealed: number = 0;     // total sealed this match (for cost scaling)
+  @type('number') cargoSealed: number = 0; // total sealed this match (for cost scaling)
   @type('number') extractionCountdown: number = 0;
   @type('boolean') isExtracting: boolean = false;
 }

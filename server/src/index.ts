@@ -8,11 +8,11 @@ import { GameRoom } from './rooms/GameRoom';
 import { ExtractionRoom } from './rooms/ExtractionRoom';
 
 const PORT = parseInt(process.env.PORT ?? '2567', 10);
-const CLIENT_URL = process.env.CLIENT_URL ?? 'http://localhost:5173';
+const CLIENT_URL = process.env.CLIENT_URL ?? '*';
 
 const app = express();
 
-app.use(cors({ origin: CLIENT_URL }));
+app.use(cors({ origin: CLIENT_URL === '*' ? true : CLIENT_URL }));
 app.use(express.json());
 
 const httpServer = createServer(app);

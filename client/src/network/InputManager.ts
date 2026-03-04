@@ -9,7 +9,7 @@ export interface InputPayload {
   dash: boolean;
 }
 
-const SEND_INTERVAL_MS = 50; // 20 Hz
+const SEND_INTERVAL_MS = 33; // ~30 Hz
 
 export class InputManager {
   private room: Colyseus.Room;

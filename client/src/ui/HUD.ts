@@ -1,26 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import Phaser from 'phaser';
 import * as Colyseus from 'colyseus.js';
-import { WIN_CARGO_COUNT } from '@evo/shared';
+import { WIN_CARGO_COUNT, getPartById } from '@evo/shared';
 
-// Extraction capsule center
-const CAPSULE_X = 1700;
-const CAPSULE_Y = 300;
+// Extraction capsule center (matches extraction zone in default-map.json: x:558 y:1560 w:746 h:207)
+const CAPSULE_X = 558 + 746 / 2; // 931
+const CAPSULE_Y = 1560 + 207 / 2; // 1663
 
-// Parts table for stat delta display (mirrors CraftingPanel)
-const PARTS_TABLE: Array<{ id: string; statModifiers: Partial<Record<string, number>> }> = [
-  { id: 'garras_rapidas',      statModifiers: { attackRate: 0.8, damage: -4 } },
-  { id: 'martillos_oseos',     statModifiers: { damage: 14, attackRate: -0.3, speed: -0.5 } },
-  { id: 'latigos_tendinosos',  statModifiers: { damage: 10, attackRate: 0.5, armor: -1 } },
-  { id: 'patas_felinas',       statModifiers: { speed: 2.0, maxHp: -10 } },
-  { id: 'piernas_saltador',    statModifiers: { speed: 1.0, armor: -1 } },
-  { id: 'zancos_queratinosos', statModifiers: { speed: 1.5, maxHp: 20 } },
-  { id: 'craneo_cazador',      statModifiers: { critChance: 0.15, critMult: 0.5, attackRate: -0.2 } },
-  { id: 'ojo_compuesto',       statModifiers: { pickupRadius: 2.0, damage: 5 } },
-  { id: 'bulbo_neural',        statModifiers: { critChance: 0.10, critMult: 0.8, maxHp: -15 } },
-  { id: 'caparazon_ligero',    statModifiers: { maxHp: 50, armor: 3, speed: -0.5 } },
-  { id: 'masa_muscular',       statModifiers: { maxHp: 40, armor: 2, critChance: -0.05 } },
-  { id: 'nucleo_regenerativo', statModifiers: { lifeSteal: 0.12, maxHp: 30, speed: -0.3 } },
-];
+// Parts now come from shared — no inline table needed.
 
 export class HUD {
   private scene: Phaser.Scene;
@@ -61,8 +48,6 @@ export class HUD {
   private statsBg!: Phaser.GameObjects.Rectangle;
   private statsText!: Phaser.GameObjects.Text;
 
-
-
   // Downed allies alert (top-left under HP)
   private downedText!: Phaser.GameObjects.Text;
   private downedTween: Phaser.Tweens.Tween | null = null;
@@ -83,6 +68,21 @@ export class HUD {
     const pad = this.PAD;
     const W = cam.width;
     const H = cam.height;
+
+    // ── Player name (top-left) ───────────────────────────────────────────────
+    const localPlayer = this.room.state.players.get(this.room.sessionId);
+    const playerName = (localPlayer as any)?.name ?? '';
+    if (playerName) {
+      this.scene.add
+        .text(pad, pad - 18, playerName, {
+          fontSize: '12px',
+          color: '#aaffaa',
+          fontFamily: 'monospace',
+        })
+        .setOrigin(0, 0)
+        .setScrollFactor(0)
+        .setDepth(102);
+    }
 
     // ── HP bar (top-left) ────────────────────────────────────────────────────
     this.hpBarBg = this.scene.add
@@ -285,46 +285,53 @@ export class HUD {
       for (let i = 0; i < equipped.length; i++) equippedIds.push(equipped[i]);
 
       // Accumulate deltas from equipped parts
-      let dDamage = 0, dSpeed = 0, dArmor = 0, dCrit = 0, dCad = 0, dPickup = 0, dCarry = 0, dInteract = 0;
+      let dDamage = 0,
+        dSpeed = 0,
+        dArmor = 0,
+        dCrit = 0,
+        dCad = 0,
+        dPickup = 0,
+        dCarry = 0,
+        dInteract = 0;
       for (const pid of equippedIds) {
-        const part = PARTS_TABLE.find(p => p.id === pid);
+        const part = getPartById(pid);
         if (!part) continue;
-        dDamage   += part.statModifiers.damage        ?? 0;
-        dSpeed    += part.statModifiers.speed         ?? 0;
-        dArmor    += part.statModifiers.armor         ?? 0;
-        dCrit     += Math.round((part.statModifiers.critChance   ?? 0) * 100);
-        dCad      += part.statModifiers.attackRate    ?? 0;
-        dPickup   += part.statModifiers.pickupRadius  ?? 0;
-        dCarry    += part.statModifiers.carryPenalty  ?? 0;
+        dDamage += part.statModifiers.damage ?? 0;
+        dSpeed += part.statModifiers.speed ?? 0;
+        dArmor += part.statModifiers.armor ?? 0;
+        dCrit += Math.round((part.statModifiers.critChance ?? 0) * 100);
+        dCad += part.statModifiers.attackRate ?? 0;
+        dPickup += part.statModifiers.pickupRadius ?? 0;
+        dCarry += part.statModifiers.carryPenalty ?? 0;
         dInteract += part.statModifiers.interactSpeed ?? 0;
       }
 
-      function fmtDelta(val: number, decimals = 0): string {
+      const fmtDelta = (val: number, decimals = 0): string => {
         if (val === 0) return '';
         const s = decimals > 0 ? val.toFixed(decimals) : String(val);
         return val > 0 ? ` [+${s}]` : ` [${s}]`;
-      }
-      function fmtPct(val: number): string {
+      };
+      const fmtPct = (val: number): string => {
         if (val === 0) return '';
         return val > 0 ? ` [+${Math.round(val * 100)}%]` : ` [${Math.round(val * 100)}%]`;
-      }
+      };
 
       const p = player as any;
       const critPct = Math.round((player.critChance ?? 0) * 100);
-      const mode    = p.isRanged ? '🔫 Ranged' : '⚔️ Melee';
+      const mode = p.isRanged ? '🔫 Ranged' : '⚔️ Melee';
       const potions = p.potions ?? 0;
 
       this.statsText.setText(
         `${mode}  💊 x${potions} (Q)\n` +
-        `⚔️  Daño:     ${player.attackDamage}${fmtDelta(dDamage)}\n` +
-        `🎯  Crit:     ${critPct}%  x${(player.critMult ?? 1.6).toFixed(1)}${fmtDelta(dCrit)}%\n` +
-        `⚡  Cadencia: ${(p.attackRate ?? 1.0).toFixed(1)}x${fmtDelta(dCad, 1)}\n` +
-        `👟  Vel:      ${(player.speed ?? 4.2).toFixed(1)}${fmtDelta(dSpeed, 1)}\n` +
-        `🛡️  Armor:    ${player.armor}${fmtDelta(dArmor)}\n` +
-        `✨  LifeS:    ${Math.round((p.lifeSteal ?? 0) * 100)}%\n` +
-        `🧲  Radio:    ${(p.pickupRadius ?? 1.0).toFixed(1)}x${fmtDelta(dPickup, 1)}\n` +
-        `📦  Carga:    ${Math.round((1 - (p.carryPenalty ?? 1.0) * 0.45) * 100)}% vel${fmtPct(-dCarry)}\n` +
-        `⏱️  Interac:  ${(p.interactSpeed ?? 1.0).toFixed(1)}x${fmtDelta(dInteract, 1)}`
+          `⚔️  Daño:     ${player.attackDamage}${fmtDelta(dDamage)}\n` +
+          `🎯  Crit:     ${critPct}%  x${(player.critMult ?? 1.6).toFixed(1)}${fmtDelta(dCrit)}%\n` +
+          `⚡  Cadencia: ${(p.attackRate ?? 1.0).toFixed(1)}x${fmtDelta(dCad, 1)}\n` +
+          `👟  Vel:      ${(player.speed ?? 4.2).toFixed(1)}${fmtDelta(dSpeed, 1)}\n` +
+          `🛡️  Armor:    ${player.armor}${fmtDelta(dArmor)}\n` +
+          `✨  LifeS:    ${Math.round((p.lifeSteal ?? 0) * 100)}%\n` +
+          `🧲  Radio:    ${(p.pickupRadius ?? 1.0).toFixed(1)}x${fmtDelta(dPickup, 1)}\n` +
+          `📦  Carga:    ${Math.round((1 - (p.carryPenalty ?? 1.0) * 0.45) * 100)}% vel${fmtPct(-dCarry)}\n` +
+          `⏱️  Interac:  ${(p.interactSpeed ?? 1.0).toFixed(1)}x${fmtDelta(dInteract, 1)}`
       );
     }
 
@@ -335,9 +342,7 @@ export class HUD {
     });
 
     if (downedCount > 0) {
-      this.downedText
-        .setText(`💀 ${downedCount} aliado(s) downed`)
-        .setVisible(true);
+      this.downedText.setText(`💀 ${downedCount} aliado(s) downed`).setVisible(true);
       if (!this.downedTween) {
         this.downedTween = this.scene.tweens.add({
           targets: this.downedText,

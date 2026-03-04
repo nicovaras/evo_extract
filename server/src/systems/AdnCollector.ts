@@ -4,8 +4,8 @@ import { GameState, PlayerState, AdnNode } from '../schemas/GameState';
 
 /** 1 game unit = 16px. pickupRadius in units → pixels. */
 const PICKUP_RADIUS_PX = 2.0 * 16; // 32px
-const MAGNET_RADIUS_PX = 120;       // magnetic attraction radius
-const MAGNET_SPEED = 300;           // px/s
+const MAGNET_RADIUS_PX = 120; // magnetic attraction radius
+const MAGNET_SPEED = 300; // px/s
 
 function distSq(ax: number, ay: number, bx: number, by: number): number {
   const dx = ax - bx;
@@ -44,6 +44,7 @@ export class AdnCollector {
         if (d <= pickupPx) {
           // Collect immediately
           player.adn += node.amount;
+          player.statAdnFarmed += node.amount;
           node.active = false;
           state.adnNodes.delete(nodeId);
 
@@ -70,8 +71,8 @@ export class AdnCollector {
       const d = dist(player.x, player.y, node.x, node.y);
       if (d === 0) return;
 
-      node.x += (player.x - node.x) / d * MAGNET_SPEED * dt;
-      node.y += (player.y - node.y) / d * MAGNET_SPEED * dt;
+      node.x += ((player.x - node.x) / d) * MAGNET_SPEED * dt;
+      node.y += ((player.y - node.y) / d) * MAGNET_SPEED * dt;
     });
   }
 }

@@ -1,9 +1,11 @@
 import { EnemyState, GameState, PlayerState } from '../../schemas/GameState';
 import { DamageSystem } from '../DamageSystem';
 import { resolveWallCollision } from '../WallCollision';
+import { inZone } from '../../../../shared/src/mapData';
 
-const ATTACK_RANGE = 32;      // px
-const ATTACK_COOLDOWN = 1.0;  // seconds
+const ATTACK_RANGE = 22; // px
+const HUB_SAFE_DURATION = 300; // seconds (5 min)
+const ATTACK_COOLDOWN = 1.0; // seconds
 
 function dist(ax: number, ay: number, bx: number, by: number): number {
   const dx = ax - bx;
@@ -43,6 +45,13 @@ export function tickTankBehavior(
   const target = findTarget(enemy, state);
 
   if (!target) {
+    enemy.behaviorState = 'IDLE';
+    return;
+  }
+
+  // During the first 5 minutes, enemies don't enter the hub.
+  // If the target is inside the hub, go idle.
+  if (state.timers.runTime < HUB_SAFE_DURATION && inZone('hub', target.x, target.y)) {
     enemy.behaviorState = 'IDLE';
     return;
   }

@@ -29,15 +29,15 @@ export class ToxicZone {
     this.graphics = scene.add.graphics();
     this.graphics.setDepth(2);
     this.graphics.setVisible(false);
-    this._draw(0.25);
+    this._draw(0.5);
   }
 
   private _draw(alpha: number): void {
     const g = this.graphics;
     g.clear();
-    g.fillStyle(0x00ff44, alpha);
+    g.fillStyle(0x8b0000, alpha); // rojo oscuro — peligro, no power up
     g.fillRect(this.config.x, this.config.y, this.config.width, this.config.height);
-    g.lineStyle(2, 0x00ff88, 1);
+    g.lineStyle(2, 0xff2200, 1);
     g.strokeRect(this.config.x, this.config.y, this.config.width, this.config.height);
   }
 
@@ -54,13 +54,13 @@ export class ToxicZone {
       this.graphics.setAlpha(0);
       this.scene.tweens.add({
         targets: this.graphics,
-        alpha: 0.25,
+        alpha: 0.5,
         duration: 600,
         ease: 'Quad.easeOut',
         onComplete: () => this._startPulse(),
       });
     } else {
-      this.graphics.setAlpha(0.25);
+      this.graphics.setAlpha(0.5);
       this._startPulse();
     }
 
@@ -70,7 +70,7 @@ export class ToxicZone {
   private _startPulse(): void {
     this.pulseTween = this.scene.tweens.add({
       targets: this.graphics,
-      alpha: { from: 0.15, to: 0.35 },
+      alpha: { from: 0.25, to: 0.5 },
       duration: 750,
       yoyo: true,
       repeat: -1,
@@ -82,13 +82,11 @@ export class ToxicZone {
 
   private _startParticles(): void {
     const spawnParticle = (): void => {
-      const px =
-        this.config.x + Math.random() * this.config.width;
-      const py =
-        this.config.y + this.config.height - Math.random() * 20;
+      const px = this.config.x + Math.random() * this.config.width;
+      const py = this.config.y + this.config.height - Math.random() * 20;
 
       const g = this.scene.add.graphics();
-      g.fillStyle(0x00ff66, 0.7);
+      g.fillStyle(0xff3300, 0.7); // partículas rojas/naranjas
       g.fillCircle(0, 0, Phaser.Math.Between(2, 5));
       g.setPosition(px, py);
       g.setDepth(3);

@@ -1,10 +1,5 @@
 import { GameState, PlayerState, CargoState } from '../schemas/GameState';
-import {
-  CARGO_COST,
-  CARRY_SPEED_MULT,
-  WIN_CARGO_COUNT,
-  EXTRACTION_COUNTDOWN,
-} from '@evo/shared';
+import { CARGO_COST, CARRY_SPEED_MULT, WIN_CARGO_COUNT, EXTRACTION_COUNTDOWN } from '@evo/shared';
 import { inZone } from '../../../shared/src/mapData';
 
 export interface SealResult {
@@ -56,6 +51,7 @@ export class CargoSystem {
     // Deduct ADN (scaled cost) and register sealed count
     player.adn -= currentCost;
     state.timers.cargoSealed += 1;
+    player.statCargoSealed += 1;
 
     // Create cargo
     const cargo = new CargoState();
@@ -124,10 +120,7 @@ export class CargoSystem {
     state.timers.cargoDelivered += 1;
 
     // Check if we should start extraction phase
-    if (
-      state.timers.cargoDelivered >= WIN_CARGO_COUNT &&
-      !state.timers.isExtracting
-    ) {
+    if (state.timers.cargoDelivered >= WIN_CARGO_COUNT && !state.timers.isExtracting) {
       state.timers.isExtracting = true;
       state.timers.extractionCountdown = EXTRACTION_COUNTDOWN;
     }

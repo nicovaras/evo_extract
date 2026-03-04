@@ -18,7 +18,17 @@ export class CraftingSystem {
       return { success: false, reason: `Parte desconocida: ${partId}` };
     }
 
-    // 2. Player in Hub zone?
+    // 2. Part is in this player's assigned pool (Ranged is always allowed)
+    if (part.slot !== 'Ranged') {
+      const assigned: string[] = [];
+      for (let i = 0; i < player.assignedParts.length; i++)
+        assigned.push(player.assignedParts[i] as string);
+      if (!assigned.includes(partId)) {
+        return { success: false, reason: 'Esta parte no está disponible para vos esta partida.' };
+      }
+    }
+
+    // 3. Player in Hub zone?
     if (!inZone('hub', player.x, player.y)) {
       return { success: false, reason: 'Debés estar en el Hub para craftear.' };
     }
@@ -58,7 +68,7 @@ export class CraftingSystem {
         if (p !== alreadyInSlot && p !== undefined) remaining.push(p);
       }
       player.equippedParts.splice(0, player.equippedParts.length);
-      remaining.forEach(p => player.equippedParts.push(p as string));
+      remaining.forEach((p) => player.equippedParts.push(p as string));
     }
 
     // Deduct ADN
@@ -105,25 +115,25 @@ export class CraftingSystem {
 
   private _applyModifiers(player: PlayerState, part: PartDefinition, sign: 1 | -1): void {
     const m = part.statModifiers;
-    if (m.speed      !== undefined) player.speed        += sign * m.speed;
-    if (m.maxHp      !== undefined) player.maxHp        += sign * m.maxHp;
-    if (m.damage     !== undefined) player.attackDamage += sign * m.damage;
-    if (m.armor      !== undefined) player.armor        += sign * m.armor;
-    if (m.critChance    !== undefined) player.critChance    += sign * m.critChance;
-    if (m.critMult      !== undefined) player.critMult      += sign * m.critMult;
-    if (m.lifeSteal     !== undefined) player.lifeSteal     += sign * m.lifeSteal;
-    if (m.attackRate    !== undefined) player.attackRate    += sign * m.attackRate;
-    if (m.pickupRadius  !== undefined) player.pickupRadius  += sign * m.pickupRadius;
-    if (m.carryPenalty  !== undefined) player.carryPenalty  += sign * m.carryPenalty;
+    if (m.speed !== undefined) player.speed += sign * m.speed;
+    if (m.maxHp !== undefined) player.maxHp += sign * m.maxHp;
+    if (m.damage !== undefined) player.attackDamage += sign * m.damage;
+    if (m.armor !== undefined) player.armor += sign * m.armor;
+    if (m.critChance !== undefined) player.critChance += sign * m.critChance;
+    if (m.critMult !== undefined) player.critMult += sign * m.critMult;
+    if (m.lifeSteal !== undefined) player.lifeSteal += sign * m.lifeSteal;
+    if (m.attackRate !== undefined) player.attackRate += sign * m.attackRate;
+    if (m.pickupRadius !== undefined) player.pickupRadius += sign * m.pickupRadius;
+    if (m.carryPenalty !== undefined) player.carryPenalty += sign * m.carryPenalty;
     if (m.interactSpeed !== undefined) player.interactSpeed += sign * m.interactSpeed;
     // Clamp sanity
-    player.critChance    = Math.max(0, Math.min(0.95, player.critChance));
-    player.critMult      = Math.max(1.0, player.critMult);
-    player.armor         = Math.max(0, player.armor);
-    player.speed         = Math.max(1.0, player.speed);
-    player.attackRate    = Math.max(0.2, player.attackRate);
-    player.pickupRadius  = Math.max(0.5, player.pickupRadius);
-    player.carryPenalty  = Math.max(0.3, Math.min(1.0, player.carryPenalty));
+    player.critChance = Math.max(0, Math.min(0.95, player.critChance));
+    player.critMult = Math.max(1.0, player.critMult);
+    player.armor = Math.max(0, player.armor);
+    player.speed = Math.max(1.0, player.speed);
+    player.attackRate = Math.max(0.2, player.attackRate);
+    player.pickupRadius = Math.max(0.5, player.pickupRadius);
+    player.carryPenalty = Math.max(0.3, Math.min(1.0, player.carryPenalty));
     player.interactSpeed = Math.max(0.3, player.interactSpeed);
   }
 }

@@ -8,15 +8,16 @@ export class CargoSprite {
 
   constructor(scene: Phaser.Scene, id: string, x: number, y: number) {
     this.id = id;
-    this.sprite = scene.add.image(x, y, SPRITE_CARGO)
-      .setDisplaySize(24, 24)
-      .setDepth(9);
+    this.sprite = scene.add.image(x, y, SPRITE_CARGO).setDisplaySize(24, 24).setDepth(9);
   }
 
   update(x: number, y: number, carrierId: string): void {
-    this.sprite.setPosition(x, y);
+    const isCarried = carrierId && carrierId !== '';
+    // Offset to the right of the carrier so it doesn't overlap the player body
+    const ox = isCarried ? 28 : 0;
+    this.sprite.setPosition(x + ox, y);
 
-    const isDropped = !carrierId || carrierId === '';
+    const isDropped = !isCarried;
 
     if (isDropped && !this.blinkTween) {
       this.blinkTween = this.sprite.scene.tweens.add({
@@ -35,7 +36,10 @@ export class CargoSprite {
   }
 
   destroy(): void {
-    if (this.blinkTween) { this.blinkTween.stop(); this.blinkTween = null; }
+    if (this.blinkTween) {
+      this.blinkTween.stop();
+      this.blinkTween = null;
+    }
     this.sprite.destroy();
   }
 }

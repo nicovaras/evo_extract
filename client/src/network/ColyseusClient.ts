@@ -11,8 +11,9 @@ export interface NetworkEvents {
 
 type EventListener<K extends keyof NetworkEvents> = NetworkEvents[K];
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? 'ws://localhost:2567';
-const HTTP_URL = import.meta.env.VITE_HTTP_URL ?? 'http://localhost:2567';
+const _host = import.meta.env.VITE_SERVER_HOST ?? window.location.hostname;
+const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? `ws://${_host}:2567`;
+const HTTP_URL = import.meta.env.VITE_HTTP_URL ?? `http://${_host}:2567`;
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
@@ -56,9 +57,14 @@ export class NetworkClient {
     return this;
   }
 
-  private emit<K extends keyof NetworkEvents>(event: K, ...args: Parameters<NetworkEvents[K]>): void {
-    const arr = this.listeners[event] as ((...a: Parameters<NetworkEvents[K]>) => void)[] | undefined;
-    arr?.forEach(fn => fn(...args));
+  private emit<K extends keyof NetworkEvents>(
+    event: K,
+    ...args: Parameters<NetworkEvents[K]>
+  ): void {
+    const arr = this.listeners[event] as
+      | ((...a: Parameters<NetworkEvents[K]>) => void)[]
+      | undefined;
+    arr?.forEach((fn) => fn(...args));
   }
 
   // ─── State Management ───────────────────────────────────────────────────────
@@ -82,12 +88,12 @@ export class NetworkClient {
 
   // ─── Connection ─────────────────────────────────────────────────────────────
 
-  async connect(roomId: string): Promise<Colyseus.Room> {
+  async connect(roomId: string, playerName?: string): Promise<Colyseus.Room> {
     this.setState('connecting');
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const room = await this.client.joinById(roomId);
+        const room = await this.client.joinById(roomId, { name: playerName ?? 'Jugador' });
         this.room = room;
         this.setState('connected');
         this.emit('connected', room);
@@ -133,7 +139,7 @@ export class NetworkClient {
   }
 
   private _delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   disconnect(): void {

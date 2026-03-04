@@ -1,6 +1,6 @@
 import { Room, Client } from 'colyseus';
 import { GameState, PlayerState, ProjectileState, AdnNode } from '../schemas/GameState';
-import { getSpawn } from '../../../shared/src/mapData';
+import { getSpawn, MAP_WALLS } from '../../../shared/src/mapData';
 import { InputProcessor, InputPayload } from '../systems/InputProcessor';
 import { CargoSystem } from '../systems/CargoSystem';
 import { WinLoseChecker } from '../systems/WinLoseChecker';
@@ -15,7 +15,7 @@ import { tickBasicBehavior } from '../systems/behaviors/BasicBehavior';
 import { tickRangedBehavior } from '../systems/behaviors/RangedBehavior';
 import { tickTankBehavior } from '../systems/behaviors/TankBehavior';
 import { separateEnemies } from '../systems/EnemySeparation';
-import { EXTRACTION_COUNTDOWN, WIN_CARGO_COUNT, WALLS, CARGO_COST } from '@evo/shared';
+import { EXTRACTION_COUNTDOWN, WIN_CARGO_COUNT, CARGO_COST, rollPartPool } from '@evo/shared';
 import { CraftingSystem } from '../systems/CraftingSystem';
 
 const PROJECTILE_HIT_RANGE = 16;
@@ -48,7 +48,7 @@ export class ExtractionRoom extends Room<GameState> {
 
     // Init systems that need room reference
     this.damageSystem = new DamageSystem(this);
-    this.reviveSystem = new ReviveSystem(this);  // registers startRevive/cancelRevive messages
+    this.reviveSystem = new ReviveSystem(this); // registers startRevive/cancelRevive messages
 
     // Init spawn/enemy systems
     this.enemyManager = new EnemyManager(this.state);
@@ -133,7 +133,7 @@ export class ExtractionRoom extends Room<GameState> {
     });
 
     // Melee attack — hits all enemies within range
-    const MELEE_RANGE = 130; // wider range so player doesn't need to be inside enemy hitbox
+    const MELEE_RANGE = 80; // reduced melee range
     const MELEE_COOLDOWN_BASE_MS = 600;
     const meleeCooldown = new Map<string, number>();
     this.onMessage('meleeAttack', (client, data: { vx: number; vy: number }) => {
@@ -141,7 +141,7 @@ export class ExtractionRoom extends Room<GameState> {
       if (!player || player.isDown || player.isRanged) return;
       const now = Date.now();
       const cooldownMs = MELEE_COOLDOWN_BASE_MS / (player.attackRate ?? 1.0);
-      if ((now - (meleeCooldown.get(client.sessionId) ?? 0)) < cooldownMs) return;
+      if (now - (meleeCooldown.get(client.sessionId) ?? 0) < cooldownMs) return;
       meleeCooldown.set(client.sessionId, now);
 
       // Hit enemies in a cone in front of the player
@@ -152,17 +152,27 @@ export class ExtractionRoom extends Room<GameState> {
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist > MELEE_RANGE) return;
         // Dot product check: must be roughly in the direction the player is facing
-        if (dist > 0 && data.vx !== 0 || data.vy !== 0) {
+        if ((dist > 0 && data.vx !== 0) || data.vy !== 0) {
           const dot = (dx / dist) * data.vx + (dy / dist) * data.vy;
           if (dot < 0.2) return; // outside ~78° cone
         }
+        // Wall check: no hitting enemies through walls
+        if (_wallBetween(player.x, player.y, enemy.x, enemy.y)) return;
         const result = this.damageSystem.applyPlayerAttackToEnemy(enemy, player);
+        // Show hit number to everyone (with crit flag)
+        this.broadcast('enemyHit', {
+          x: enemy.x,
+          y: enemy.y,
+          damage: result.damage,
+          isCrit: result.isCrit,
+          killed: result.killed,
+          enemyId: id,
+        });
         if (result.killed) hits.push(id);
-        this.broadcast('playerHit', { sessionId: null, damage: player.attackDamage, source: 'melee', hp: enemy.hp, maxHp: enemy.maxHp });
       });
 
       // Remove killed enemies
-      hits.forEach(id => this._killEnemy(id));
+      hits.forEach((id) => this._killEnemy(id, 0));
 
       client.send('meleeHit', { count: hits.length });
     });
@@ -171,8 +181,14 @@ export class ExtractionRoom extends Room<GameState> {
     this.onMessage('usePotion', (client) => {
       const player = this.state.players.get(client.sessionId);
       if (!player || player.isDown) return;
-      if (player.potions <= 0) { client.send('potionEmpty', {}); return; }
-      if (player.hp >= player.maxHp) { client.send('potionFull', {}); return; }
+      if (player.potions <= 0) {
+        client.send('potionEmpty', {});
+        return;
+      }
+      if (player.hp >= player.maxHp) {
+        client.send('potionFull', {});
+        return;
+      }
       player.potions -= 1;
       player.hp = Math.min(player.maxHp, player.hp + 60);
       client.send('potionUsed', { hp: Math.ceil(player.hp), potions: player.potions });
@@ -197,10 +213,13 @@ export class ExtractionRoom extends Room<GameState> {
       client.send('warped', {});
     });
 
-    // 20 ticks/sec simulation loop
+    // 30 ticks/sec simulation loop
     this.setSimulationInterval((deltaTime) => {
       this._tick(deltaTime);
-    }, 50);
+    }, 33);
+
+    // Send state patches at 30 Hz
+    this.setPatchRate(33);
 
     console.log(
       `[ExtractionRoom] onCreate | roomId=${this.roomId} | maxClients=${this.maxClients} | options=${JSON.stringify(options)}`
@@ -210,14 +229,21 @@ export class ExtractionRoom extends Room<GameState> {
   onJoin(client: Client, options: Record<string, unknown>): void {
     const player = new PlayerState();
     player.id = client.sessionId;
+    const rawName = typeof options?.name === 'string' ? options.name.trim() : '';
+    player.name = rawName.slice(0, 20) || 'Jugador';
     const sp = getSpawn('player');
     player.x = (sp?.x ?? 1000) + Math.floor((Math.random() - 0.5) * 100);
     player.y = (sp?.y ?? 1000) + Math.floor((Math.random() - 0.5) * 100);
     this.state.players.set(client.sessionId, player);
 
     // Enviar zonas tóxicas actuales al nuevo jugador
-    const zones = Array.from(this.state.toxicZones.values()).map(z => ({
-      id: z.id, x: z.x, y: z.y, width: z.width, height: z.height, active: z.active
+    const zones = Array.from(this.state.toxicZones.values()).map((z) => ({
+      id: z.id,
+      x: z.x,
+      y: z.y,
+      width: z.width,
+      height: z.height,
+      active: z.active,
     }));
     client.send('toxicZonesUpdate', { zones });
 
@@ -265,7 +291,8 @@ export class ExtractionRoom extends Room<GameState> {
     const BASE_REGEN_RATE = 0.25; // HP per second
     this.state.players.forEach((player) => {
       if (!player.isDown && player.hp > 0 && player.hp < player.maxHp) {
-        const regenRate = BASE_REGEN_RATE + (player.equippedParts.includes('nucleo_regenerativo') ? 1.0 : 0);
+        const regenRate =
+          BASE_REGEN_RATE + (player.equippedParts.includes('nucleo_regenerativo') ? 1.0 : 0);
         player.hp = Math.min(player.maxHp, player.hp + regenRate * dt);
       }
     });
@@ -330,7 +357,6 @@ export class ExtractionRoom extends Room<GameState> {
     // ── Enemy separation ───────────────────────────────────────────────────
     separateEnemies(this.state);
 
-
     // ── Projectile updates ─────────────────────────────────────────────────
     const toRemove: string[] = [];
 
@@ -340,15 +366,20 @@ export class ExtractionRoom extends Room<GameState> {
 
       // Out of bounds
       if (
-        proj.x < WORLD_BOUNDS.min || proj.x > WORLD_BOUNDS.max ||
-        proj.y < WORLD_BOUNDS.min || proj.y > WORLD_BOUNDS.max
+        proj.x < WORLD_BOUNDS.min ||
+        proj.x > WORLD_BOUNDS.max ||
+        proj.y < WORLD_BOUNDS.min ||
+        proj.y > WORLD_BOUNDS.max
       ) {
         toRemove.push(proj.id);
         return;
       }
 
       // Wall collision
-      if (_projHitsWall(proj.x, proj.y)) { toRemove.push(proj.id); return; }
+      if (_projHitsWall(proj.x, proj.y)) {
+        toRemove.push(proj.id);
+        return;
+      }
 
       // Collision with players
       this.state.players.forEach((player) => {
@@ -375,14 +406,25 @@ export class ExtractionRoom extends Room<GameState> {
         playerProjToRemove.push(proj.id);
         return;
       }
-      if (_projHitsWall(proj.x, proj.y)) { playerProjToRemove.push(proj.id); return; }
+      if (_projHitsWall(proj.x, proj.y)) {
+        playerProjToRemove.push(proj.id);
+        return;
+      }
       this.state.enemies.forEach((enemy, enemyId) => {
         const dx = proj.x - enemy.x;
         const dy = proj.y - enemy.y;
-        if (Math.sqrt(dx*dx + dy*dy) < 20) {
+        if (Math.sqrt(dx * dx + dy * dy) < 20) {
           const shooter = this.state.players.get(proj.ownerId);
           if (shooter) {
             const result = this.damageSystem.applyPlayerAttackToEnemy(enemy, shooter);
+            this.broadcast('enemyHit', {
+              x: enemy.x,
+              y: enemy.y,
+              damage: result.damage,
+              isCrit: result.isCrit,
+              killed: result.killed,
+              enemyId,
+            });
             if (result.killed) {
               this._killEnemy(enemyId);
             }
@@ -391,7 +433,7 @@ export class ExtractionRoom extends Room<GameState> {
         }
       });
     });
-    playerProjToRemove.forEach(id => this.state.playerProjectiles.delete(id));
+    playerProjToRemove.forEach((id) => this.state.playerProjectiles.delete(id));
 
     // ── Revive system tick ─────────────────────────────────────────────────
     this.reviveSystem.tick();
@@ -423,8 +465,16 @@ export class ExtractionRoom extends Room<GameState> {
     const players = this.state.players;
     if (players.size === 0) return;
     let allReady = true;
-    players.forEach((p) => { if (!p.isReady) allReady = false; });
+    players.forEach((p) => {
+      if (!p.isReady) allReady = false;
+    });
     if (allReady) {
+      // Assign random part pool to each player
+      players.forEach((p) => {
+        const pool = rollPartPool();
+        p.assignedParts.splice(0, p.assignedParts.length);
+        pool.forEach((id) => p.assignedParts.push(id));
+      });
       this.state.gameStarted = true;
       this.broadcast('gameStarted', {});
       console.log(`[ExtractionRoom] gameStarted | roomId=${this.roomId}`);
@@ -448,7 +498,7 @@ export class ExtractionRoom extends Room<GameState> {
   }
 
   /** Kill an enemy, drop ADN nodes, broadcast event. Call instead of enemies.delete() directly. */
-  private _killEnemy(enemyId: string): void {
+  private _killEnemy(enemyId: string, _finalDamage: number = 0): void {
     const enemy = this.state.enemies.get(enemyId);
     if (!enemy) return;
     const dropCount = enemy.adnDrop ?? 4;
@@ -466,27 +516,52 @@ export class ExtractionRoom extends Room<GameState> {
     // Mini-bosses drop a potion to a random alive player
     if (enemy.isBoss) {
       const alivePlayers: string[] = [];
-      this.state.players.forEach((p, sid) => { if (!p.isDown) alivePlayers.push(sid); });
+      this.state.players.forEach((p, sid) => {
+        if (!p.isDown) alivePlayers.push(sid);
+      });
       if (alivePlayers.length > 0) {
         const sid = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
         const p = this.state.players.get(sid)!;
         p.potions = Math.min(p.potions + 1, 4);
-        const client = this.clients.find(c => c.sessionId === sid);
+        const client = this.clients.find((c) => c.sessionId === sid);
         client?.send('potionDropped', { potions: p.potions });
       }
     }
-    this.broadcast('enemyKilled', { enemyId, x: enemy.x, y: enemy.y, damage: 0 });
+    this.broadcast('enemyKilled', { enemyId, x: enemy.x, y: enemy.y });
     this.state.enemies.delete(enemyId);
   }
 
   private _broadcastGameOver(data: { win: boolean; reason?: string }): void {
     if (this.gameOverSent) return;
     this.gameOverSent = true;
+    const playerStats: Record<
+      string,
+      {
+        name: string;
+        adnFarmed: number;
+        damageDealt: number;
+        kills: number;
+        cargoSealed: number;
+        timesDowned: number;
+      }
+    > = {};
+    this.state.players.forEach((p, sid) => {
+      playerStats[sid] = {
+        name: p.name,
+        adnFarmed: p.statAdnFarmed,
+        damageDealt: p.statDamageDealt,
+        kills: p.statKills,
+        cargoSealed: p.statCargoSealed,
+        timesDowned: p.statTimesDowned,
+      };
+    });
+
     this.broadcast('gameOver', {
       ...data,
       stats: {
         runTime: Math.floor(this.state.timers.runTime),
         cargoDelivered: this.state.timers.cargoDelivered,
+        playerStats,
       },
     });
     console.log(`[ExtractionRoom] gameOver | win=${data.win} | reason=${data.reason ?? 'none'}`);
@@ -494,8 +569,17 @@ export class ExtractionRoom extends Room<GameState> {
 }
 
 function _projHitsWall(x: number, y: number): boolean {
-  for (const w of WALLS) {
+  for (const w of MAP_WALLS) {
     if (x >= w.x && x <= w.x + w.w && y >= w.y && y <= w.y + w.h) return true;
+  }
+  return false;
+}
+
+function _wallBetween(ax: number, ay: number, bx: number, by: number): boolean {
+  const steps = Math.ceil(Math.sqrt((bx - ax) ** 2 + (by - ay) ** 2) / 8);
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    if (_projHitsWall(ax + (bx - ax) * t, ay + (by - ay) * t)) return true;
   }
   return false;
 }

@@ -269,7 +269,7 @@ export class CraftingPanel {
       }
     }
     const equipped: Set<string> = new Set(playerState ? [...playerState.equippedParts] : []);
-    const currentAdn: number = playerState ? playerState.adn : 0;
+    const currentAdn: number = (this.room.state.timers as any)?.adn ?? 0;
 
     const startY = oy + 80;
     const rowH = 130;

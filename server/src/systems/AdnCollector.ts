@@ -42,16 +42,14 @@ export class AdnCollector {
         const d = dist(player.x, player.y, node.x, node.y);
 
         if (d <= pickupPx) {
-          // Collect immediately
-          player.adn += node.amount;
+          // Collect into global pool
+          state.timers.adn += node.amount;
           player.statAdnFarmed += node.amount;
           node.active = false;
           state.adnNodes.delete(nodeId);
 
-          const client = this.room.clients.find((c) => c.sessionId === sessionId);
-          if (client) {
-            client.send('adnPickup', { amount: node.amount, total: player.adn });
-          }
+          // Broadcast pickup to all clients
+          this.room.broadcast('adnPickup', { amount: node.amount, total: state.timers.adn });
         } else if (d <= MAGNET_RADIUS_PX) {
           // Magnetic: closest player wins
           const current = magnetTargets.get(nodeId);

@@ -259,7 +259,7 @@ export class HUD {
       const ratio = Math.max(0, Math.min(1, player.hp / player.maxHp));
       this.hpBarFill.width = this.BAR_W * ratio;
       this.hpText.setText(`${Math.ceil(player.hp)}/${player.maxHp}`);
-      this.adnText.setText(`🧬 ${player.adn}`);
+      this.adnText.setText(`🧬 ${(this.room.state.timers as any)?.adn ?? 0}`);
 
       // Carry icon
       this.carryIcon.setVisible(player.isCarrying);

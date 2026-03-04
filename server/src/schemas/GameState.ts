@@ -4,6 +4,7 @@ export class PlayerState extends Schema {
   @type('string') id: string = '';
   @type('string') name: string = 'Jugador';
   @type('number') x: number = 1000;
+  /** @deprecated use GameState.timers.adn — kept for schema compat */
   @type('number') y: number = 1000;
   @type('number') hp: number = 120;
   @type('number') maxHp: number = 120;
@@ -95,6 +96,7 @@ export class ToxicZoneState extends Schema {
 export class GameTimers extends Schema {
   @type('number') runTime: number = 0;
   @type('string') phase: string = 'early'; // early | mid | late
+  @type('number') adn: number = 0; // global shared ADN pool
   @type('number') cargoDelivered: number = 0;
   @type('number') cargoSealed: number = 0; // total sealed this match (for cost scaling)
   @type('number') extractionCountdown: number = 0;

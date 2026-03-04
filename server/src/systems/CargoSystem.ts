@@ -34,7 +34,7 @@ export class CargoSystem {
       return { success: false, reason: 'not_in_hub' };
     }
     const currentCost = CARGO_COST + state.timers.cargoSealed * 10;
-    if (player.adn < currentCost) {
+    if (state.timers.adn < currentCost) {
       return { success: false, reason: 'insufficient_adn' };
     }
     if (player.isCarrying) {
@@ -48,8 +48,8 @@ export class CargoSystem {
     }
     lastSealTime.set(player.id, now);
 
-    // Deduct ADN (scaled cost) and register sealed count
-    player.adn -= currentCost;
+    // Deduct ADN from global pool
+    state.timers.adn -= currentCost;
     state.timers.cargoSealed += 1;
     player.statCargoSealed += 1;
 

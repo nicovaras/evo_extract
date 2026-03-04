@@ -10,7 +10,7 @@ export class CraftingSystem {
   /** sessionId → timestamp of last successful craft */
   private lastCraftTime = new Map<string, number>();
 
-  craft(player: PlayerState, partId: string, _gameState: GameState): CraftResult {
+  craft(player: PlayerState, partId: string, gameState: GameState): CraftResult {
     const part: PartDefinition | undefined = getPartById(partId);
 
     // 1. Part exists?
@@ -45,11 +45,11 @@ export class CraftingSystem {
       return { success: false, reason: 'Esta parte ya está equipada.' };
     }
 
-    // 5. ADN suficiente?
-    if (player.adn < part.cost) {
+    // 5. ADN suficiente (global pool)?
+    if (gameState.timers.adn < part.cost) {
       return {
         success: false,
-        reason: `ADN insuficiente. Necesitás ${part.cost}, tenés ${player.adn}.`,
+        reason: `ADN insuficiente. Necesitás ${part.cost}, hay ${gameState.timers.adn}.`,
       };
     }
 
@@ -71,8 +71,8 @@ export class CraftingSystem {
       remaining.forEach((p) => player.equippedParts.push(p as string));
     }
 
-    // Deduct ADN
-    player.adn -= part.cost;
+    // Deduct ADN from global pool
+    gameState.timers.adn -= part.cost;
 
     // Add to equippedParts
     player.equippedParts.push(partId);

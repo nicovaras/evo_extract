@@ -355,12 +355,13 @@ export class GameScene extends Phaser.Scene {
 
       // Seal cargo hold (F held, in hub, panel closed, has enough ADN)
       const currentSealCost = CARGO_COST + (this.room.state.timers?.cargoSealed ?? 0) * 10;
+      const globalAdn = (this.room.state.timers as any)?.adn ?? 0;
       if (
         this.fKey.isDown &&
         inHub &&
         !this.craftingPanel.isVisible() &&
         !serverPlayer.isCarrying &&
-        serverPlayer.adn < currentSealCost
+        globalAdn < currentSealCost
       ) {
         // No tiene ADN suficiente — mostrar hint (una vez por segundo)
         if (this.sealHoldStart === null) {
@@ -369,7 +370,7 @@ export class GameScene extends Phaser.Scene {
             .text(
               serverPlayer.x,
               serverPlayer.y - 20,
-              `ADN insuficiente (${serverPlayer.adn}/${currentSealCost})`,
+              `ADN insuficiente (${globalAdn}/${currentSealCost})`,
               {
                 fontSize: '13px',
                 color: '#ff8800',
@@ -393,7 +394,7 @@ export class GameScene extends Phaser.Scene {
         inHub &&
         !this.craftingPanel.isVisible() &&
         !serverPlayer.isCarrying &&
-        serverPlayer.adn >= currentSealCost
+        globalAdn >= currentSealCost
       ) {
         if (this.sealHoldStart === null) {
           this.sealHoldStart = now;

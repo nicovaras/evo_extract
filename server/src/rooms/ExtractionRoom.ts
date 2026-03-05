@@ -118,6 +118,36 @@ export class ExtractionRoom extends Room<GameState> {
       client.send('deliverResult', { success: result.success, reason: result.reason });
     });
 
+    // ── Pickup dropped cargo ────────────────────────────────────────────────
+    const CARGO_PICKUP_RANGE = 48;
+    this.onMessage('pickupCargo', (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || player.isDown || player.isCarrying) return;
+
+      let nearestId: string | null = null;
+      let nearestDist = CARGO_PICKUP_RANGE;
+
+      this.state.cargo.forEach((c, id) => {
+        if (c.carrierId !== '') return; // already carried
+        const dx = player.x - c.x;
+        const dy = player.y - c.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < nearestDist) {
+          nearestDist = d;
+          nearestId = id;
+        }
+      });
+
+      if (nearestId) {
+        const cargo = this.state.cargo.get(nearestId)!;
+        cargo.carrierId = player.id;
+        player.isCarrying = true;
+        client.send('pickupResult', { success: true, cargoId: nearestId });
+      } else {
+        client.send('pickupResult', { success: false });
+      }
+    });
+
     this.onMessage('shoot', (client, data: { vx: number; vy: number }) => {
       const player = this.state.players.get(client.sessionId);
       if (!player || player.isDown || !player.isRanged) return;

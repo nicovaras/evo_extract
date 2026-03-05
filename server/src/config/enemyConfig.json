@@ -9,7 +9,7 @@
     "attackCooldown": 2.8,
     "range": 180
   },
-  "tank": { "hp": 160, "damage": 18, "speed": 3.0, "adnDrop": 8 },
+  "tank": { "hp": 110, "damage": 18, "speed": 3.0, "adnDrop": 8 },
   "eliteMultipliers": { "hp": 2.2, "damage": 1.6, "speed": 1.15, "adnDrop": 3 },
   "miniBossA": { "hp": 500, "damage": 20, "speed": 3.5, "adnDrop": 40, "type": "basic" },
   "miniBossB": {

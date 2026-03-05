@@ -353,6 +353,26 @@ export class GameScene extends Phaser.Scene {
         this.craftingPanel.toggle();
       }
 
+      // Pickup dropped cargo with E (JustDown) when not carrying and near a dropped box
+      if (!inHub && eJustDown && !serverPlayer.isCarrying && !amDowned) {
+        const PICKUP_RANGE = 48;
+        let nearestDist = PICKUP_RANGE;
+        let hasNearby = false;
+        this.room.state.cargo.forEach((c: any) => {
+          if (c.carrierId !== '') return;
+          const dx = serverPlayer.x - c.x;
+          const dy = serverPlayer.y - c.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < nearestDist) {
+            nearestDist = d;
+            hasNearby = true;
+          }
+        });
+        if (hasNearby) {
+          this.room.send('pickupCargo', {});
+        }
+      }
+
       // Seal cargo hold (F held, in hub, panel closed, has enough ADN)
       const currentSealCost = CARGO_COST + (this.room.state.timers?.cargoSealed ?? 0) * 10;
       const globalAdn = (this.room.state.timers as any)?.adn ?? 0;

@@ -271,31 +271,47 @@ export class CraftingPanel {
     const equipped: Set<string> = new Set(playerState ? [...playerState.equippedParts] : []);
     const currentAdn: number = (this.room.state.timers as any)?.adn ?? 0;
 
+    // Find the highest tier equipped in this slot (to grey out lower tiers)
+    const TIER_RANK: Record<string, number> = { T1: 1, T2: 2, T3: 3 };
+    let equippedTierRank = 0;
+    parts.forEach((p) => {
+      if (equipped.has(p.id)) equippedTierRank = Math.max(equippedTierRank, TIER_RANK[p.tier] ?? 0);
+    });
+
     const startY = oy + 80;
     const rowH = 130;
 
     parts.forEach((part, idx) => {
       const ry = startY + idx * rowH;
       const isEquipped = equipped.has(part.id);
-      const canAfford = currentAdn >= part.cost;
+      const partTierRank = TIER_RANK[part.tier] ?? 0;
+      // Grey out if a higher (or equal, non-self) tier is equipped in this slot
+      const superseded = !isEquipped && equippedTierRank >= partTierRank;
+      const canAfford = !superseded && currentAdn >= part.cost;
 
       // Row bg
       const rowBg = this.scene.add
         .graphics()
         .setScrollFactor(0)
         .setDepth(DEPTH + 1);
-      const rowColor = isEquipped ? 0x1a3a1a : canAfford ? 0x111122 : 0x1a1a1a;
+      const rowColor = isEquipped
+        ? 0x1a3a1a
+        : superseded
+          ? 0x0e0e0e
+          : canAfford
+            ? 0x111122
+            : 0x1a1a1a;
       rowBg.fillStyle(rowColor, 1);
       rowBg.fillRoundedRect(ox + 10, ry, 540, rowH - 6, 6);
       this.contentElements.push(rowBg);
 
       // Part name
       const tierColor = TIER_COLORS[part.tier] ?? '#ffffff';
-      const nameLabel = `${isEquipped ? '✓ ' : ''}${part.name}`;
+      const nameLabel = `${isEquipped ? '✓ ' : superseded ? '🔒 ' : ''}${part.name}`;
       const nameText = this.scene.add
         .text(ox + 20, ry + 8, nameLabel, {
           fontSize: '15px',
-          color: isEquipped ? '#2aff6a' : '#ffffff',
+          color: isEquipped ? '#2aff6a' : superseded ? '#444444' : '#ffffff',
           fontFamily: 'monospace',
           fontStyle: 'bold',
         })
@@ -341,8 +357,8 @@ export class CraftingPanel {
       this.contentElements.push(costText);
 
       // Craft button
-      const btnDisabled = isEquipped || !canAfford;
-      const btnLabel = isEquipped ? '✓ Equipado' : 'Craftear';
+      const btnDisabled = isEquipped || !canAfford || superseded;
+      const btnLabel = isEquipped ? '✓ Equipado' : superseded ? '— Superado' : 'Craftear';
       const btnColor = btnDisabled ? '#333333' : '#1a3a1a';
       const btnTextColor = btnDisabled ? '#555555' : '#2aff6a';
 

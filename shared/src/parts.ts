@@ -1,6 +1,6 @@
 import { PartDefinition, PartSlot, PartTier } from './types';
 
-// Base ranges: T1 40-65, T2 100-145, T3 180-235
+// Base ranges: T1 35-55, T2 55-75, T3 65-85
 // Cost reflects power level: pure upsides cost more, trade-offs cost less
 
 // ─── ALL PARTS ────────────────────────────────────────────────────────────────
@@ -16,7 +16,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Garras Rápidas',
     slot: 'Arms',
     tier: 'T1',
-    cost: 45,
+    cost: 42,
     statModifiers: { attackRate: 0.8, damage: -4 },
   },
   {
@@ -24,7 +24,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Espinas Afiladas',
     slot: 'Arms',
     tier: 'T1',
-    cost: 50,
+    cost: 48,
     statModifiers: { damage: 6, attackRate: -0.3 },
   },
   {
@@ -32,7 +32,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Tenazas Ácidas',
     slot: 'Arms',
     tier: 'T1',
-    cost: 40,
+    cost: 35,
     statModifiers: { damage: 4, armor: -2 },
   },
   {
@@ -60,7 +60,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Martillos Óseos',
     slot: 'Arms',
     tier: 'T2',
-    cost: 110,
+    cost: 55,
     statModifiers: { damage: 14, attackRate: -0.3, speed: -0.5 },
   },
   {
@@ -68,7 +68,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Cuchillas Vibrantes',
     slot: 'Arms',
     tier: 'T2',
-    cost: 125,
+    cost: 70,
     statModifiers: { damage: 8, attackRate: 0.4, critChance: -0.05 },
   },
   {
@@ -76,7 +76,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Garfios de Caza',
     slot: 'Arms',
     tier: 'T2',
-    cost: 120,
+    cost: 65,
     statModifiers: { damage: 6, critChance: 0.1, armor: -1 },
   },
   {
@@ -84,7 +84,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Brazos Pistónicos',
     slot: 'Arms',
     tier: 'T2',
-    cost: 130,
+    cost: 75,
     statModifiers: { damage: 10, lifeSteal: 0.05, maxHp: -20 },
   },
   {
@@ -92,7 +92,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Lanzas Membranosas',
     slot: 'Arms',
     tier: 'T2',
-    cost: 115,
+    cost: 60,
     statModifiers: { damage: 12, speed: -1.0, maxHp: -10 },
   },
 
@@ -104,7 +104,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Látigos Tendinosos',
     slot: 'Arms',
     tier: 'T3',
-    cost: 210,
+    cost: 76,
     statModifiers: { damage: 10, attackRate: 0.5, armor: -1 },
   },
   {
@@ -112,7 +112,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Colmillos Venenosos',
     slot: 'Arms',
     tier: 'T3',
-    cost: 200,
+    cost: 72,
     statModifiers: { damage: 8, lifeSteal: 0.15, speed: -0.5 },
   },
   {
@@ -120,7 +120,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Mazo Quitinoso',
     slot: 'Arms',
     tier: 'T3',
-    cost: 185,
+    cost: 65,
     statModifiers: { damage: 20, attackRate: -0.8, speed: -0.5 },
   },
   {
@@ -128,7 +128,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Sierra Ósea',
     slot: 'Arms',
     tier: 'T3',
-    cost: 215,
+    cost: 78,
     statModifiers: { damage: 12, critChance: 0.15, maxHp: -25 },
   },
   {
@@ -136,7 +136,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Garra Rápaz',
     slot: 'Arms',
     tier: 'T3',
-    cost: 230,
+    cost: 85,
     statModifiers: { damage: 8, attackRate: 1.0, critChance: 0.05, armor: -2 },
   },
 
@@ -156,7 +156,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Zancas Largas',
     slot: 'Legs',
     tier: 'T1',
-    cost: 50,
+    cost: 48,
     statModifiers: { speed: 1.0, carryPenalty: -0.15 },
   },
   {
@@ -164,7 +164,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Membranas Saltadoras',
     slot: 'Legs',
     tier: 'T1',
-    cost: 45,
+    cost: 42,
     statModifiers: { speed: 0.5, armor: 1 },
   },
   {
@@ -172,7 +172,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Patas de Muelle',
     slot: 'Legs',
     tier: 'T1',
-    cost: 50,
+    cost: 48,
     statModifiers: { speed: 1.5, attackRate: -0.2 },
   },
   {
@@ -180,7 +180,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Tendones Elásticos',
     slot: 'Legs',
     tier: 'T1',
-    cost: 50,
+    cost: 48,
     statModifiers: { speed: 0.8, pickupRadius: 0.5 },
   },
 
@@ -192,7 +192,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Piernas Saltador',
     slot: 'Legs',
     tier: 'T2',
-    cost: 120,
+    cost: 65,
     statModifiers: { speed: 1.0, armor: -1, attackRate: 0.3 },
   },
   {
@@ -200,7 +200,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Músculos Acelerados',
     slot: 'Legs',
     tier: 'T2',
-    cost: 110,
+    cost: 55,
     statModifiers: { speed: 2.0, maxHp: -20, armor: -1 },
   },
   {
@@ -208,7 +208,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Patas Cíclopes',
     slot: 'Legs',
     tier: 'T2',
-    cost: 125,
+    cost: 70,
     statModifiers: { speed: 0.5, maxHp: 30, carryPenalty: -0.2 },
   },
   {
@@ -216,7 +216,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Articulaciones Hidráulicas',
     slot: 'Legs',
     tier: 'T2',
-    cost: 130,
+    cost: 75,
     statModifiers: { speed: 1.2, carryPenalty: -0.3, critChance: -0.05 },
   },
   {
@@ -224,7 +224,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Piernas Blindadas',
     slot: 'Legs',
     tier: 'T2',
-    cost: 120,
+    cost: 65,
     statModifiers: { armor: 3, speed: -0.5, maxHp: 20 },
   },
 
@@ -236,7 +236,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Zancos Queratinosos',
     slot: 'Legs',
     tier: 'T3',
-    cost: 210,
+    cost: 76,
     statModifiers: { speed: 1.5, maxHp: 20, carryPenalty: -0.25 },
   },
   {
@@ -244,7 +244,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Propulsores Orgánicos',
     slot: 'Legs',
     tier: 'T3',
-    cost: 190,
+    cost: 67,
     statModifiers: { speed: 3.0, maxHp: -30, armor: -2 },
   },
   {
@@ -252,7 +252,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Exoesqueleto Inferior',
     slot: 'Legs',
     tier: 'T3',
-    cost: 215,
+    cost: 78,
     statModifiers: { speed: 0.5, armor: 4, maxHp: 40, attackRate: -0.3 },
   },
   {
@@ -260,7 +260,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Corredores Micelares',
     slot: 'Legs',
     tier: 'T3',
-    cost: 220,
+    cost: 81,
     statModifiers: { speed: 2.0, carryPenalty: -0.4, critChance: -0.1 },
   },
   {
@@ -268,7 +268,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Patas Parásitas',
     slot: 'Legs',
     tier: 'T3',
-    cost: 205,
+    cost: 74,
     statModifiers: { speed: 1.5, lifeSteal: 0.08, maxHp: -15 },
   },
 
@@ -280,7 +280,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Cráneo Cazador',
     slot: 'Head',
     tier: 'T1',
-    cost: 50,
+    cost: 48,
     statModifiers: { critChance: 0.15, critMult: 0.5, attackRate: -0.2 },
   },
   {
@@ -296,7 +296,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Óculos Depredador',
     slot: 'Head',
     tier: 'T1',
-    cost: 45,
+    cost: 42,
     statModifiers: { critChance: 0.1, critMult: 0.3 },
   },
   {
@@ -304,7 +304,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Mandíbulas Extra',
     slot: 'Head',
     tier: 'T1',
-    cost: 50,
+    cost: 48,
     statModifiers: { attackRate: 0.4, critChance: -0.03 },
   },
   {
@@ -312,7 +312,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Cresta Sensorial',
     slot: 'Head',
     tier: 'T1',
-    cost: 50,
+    cost: 48,
     statModifiers: { critChance: 0.08, armor: 1 },
   },
 
@@ -324,7 +324,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Ojo Compuesto',
     slot: 'Head',
     tier: 'T2',
-    cost: 120,
+    cost: 65,
     statModifiers: { pickupRadius: 2.0, damage: 5 },
   },
   {
@@ -332,7 +332,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Lóbulo Táctico',
     slot: 'Head',
     tier: 'T2',
-    cost: 125,
+    cost: 70,
     statModifiers: { critChance: 0.15, critMult: 0.4, pickupRadius: -0.5 },
   },
   {
@@ -340,7 +340,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Cerebro Auxiliar',
     slot: 'Head',
     tier: 'T2',
-    cost: 120,
+    cost: 65,
     statModifiers: { interactSpeed: 0.3, pickupRadius: 1.0 },
   },
   {
@@ -348,7 +348,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Cuernos Ofensivos',
     slot: 'Head',
     tier: 'T2',
-    cost: 130,
+    cost: 75,
     statModifiers: { damage: 8, critChance: 0.08, maxHp: -15 },
   },
   {
@@ -356,7 +356,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Cabeza Blindada',
     slot: 'Head',
     tier: 'T2',
-    cost: 115,
+    cost: 60,
     statModifiers: { armor: 3, maxHp: 25, critChance: -0.05 },
   },
 
@@ -368,7 +368,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Bulbo Neural',
     slot: 'Head',
     tier: 'T3',
-    cost: 210,
+    cost: 76,
     statModifiers: { critChance: 0.1, critMult: 0.8, maxHp: -15, interactSpeed: 0.5 },
   },
   {
@@ -376,7 +376,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Nodo Psíquico',
     slot: 'Head',
     tier: 'T3',
-    cost: 200,
+    cost: 72,
     statModifiers: { critChance: 0.2, critMult: 1.0, speed: -0.5, armor: -1 },
   },
   {
@@ -384,7 +384,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Hemisferio Táctil',
     slot: 'Head',
     tier: 'T3',
-    cost: 215,
+    cost: 78,
     statModifiers: { pickupRadius: 3.0, interactSpeed: 0.5, critChance: 0.05 },
   },
   {
@@ -392,7 +392,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Córtex Bestial',
     slot: 'Head',
     tier: 'T3',
-    cost: 225,
+    cost: 83,
     statModifiers: { damage: 10, critChance: 0.15, critMult: 0.5, maxHp: -30 },
   },
   {
@@ -400,7 +400,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Procesador Biomecánico',
     slot: 'Head',
     tier: 'T3',
-    cost: 220,
+    cost: 81,
     statModifiers: { interactSpeed: 0.8, critMult: 0.6, pickupRadius: 1.5, attackRate: -0.2 },
   },
 
@@ -420,7 +420,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Membrana Absorbente',
     slot: 'Torso',
     tier: 'T1',
-    cost: 50,
+    cost: 48,
     statModifiers: { armor: 4, maxHp: -10 },
   },
   {
@@ -428,7 +428,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Torso Acelerado',
     slot: 'Torso',
     tier: 'T1',
-    cost: 50,
+    cost: 48,
     statModifiers: { attackRate: 0.3, speed: 0.5, armor: -1 },
   },
   {
@@ -444,7 +444,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Exoderma Fino',
     slot: 'Torso',
     tier: 'T1',
-    cost: 50,
+    cost: 48,
     statModifiers: { maxHp: 20, lifeSteal: 0.04 },
   },
 
@@ -456,7 +456,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Masa Muscular',
     slot: 'Torso',
     tier: 'T2',
-    cost: 125,
+    cost: 70,
     statModifiers: { maxHp: 40, armor: 2, critChance: -0.05, carryPenalty: -0.15 },
   },
   {
@@ -464,7 +464,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Placas Cerámicas',
     slot: 'Torso',
     tier: 'T2',
-    cost: 120,
+    cost: 65,
     statModifiers: { armor: 5, maxHp: 20, speed: -0.8 },
   },
   {
@@ -472,7 +472,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Fibras Reactivas',
     slot: 'Torso',
     tier: 'T2',
-    cost: 130,
+    cost: 75,
     statModifiers: { attackRate: 0.5, lifeSteal: 0.06, maxHp: -20 },
   },
   {
@@ -480,7 +480,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Torso de Acero',
     slot: 'Torso',
     tier: 'T2',
-    cost: 120,
+    cost: 65,
     statModifiers: { armor: 4, maxHp: 30, attackRate: -0.2 },
   },
   {
@@ -488,7 +488,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Coraza Adaptativa',
     slot: 'Torso',
     tier: 'T2',
-    cost: 125,
+    cost: 70,
     statModifiers: { armor: 3, maxHp: 25, carryPenalty: -0.2 },
   },
 
@@ -500,7 +500,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Núcleo Regenerativo',
     slot: 'Torso',
     tier: 'T3',
-    cost: 210,
+    cost: 76,
     statModifiers: { lifeSteal: 0.12, maxHp: 30, speed: -0.3 },
   },
   {
@@ -508,7 +508,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Reactor Vital',
     slot: 'Torso',
     tier: 'T3',
-    cost: 195,
+    cost: 69,
     statModifiers: { lifeSteal: 0.2, maxHp: -20, armor: -1 },
   },
   {
@@ -516,7 +516,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Blindaje Total',
     slot: 'Torso',
     tier: 'T3',
-    cost: 185,
+    cost: 65,
     statModifiers: { armor: 8, maxHp: 60, speed: -1.5, attackRate: -0.3 },
   },
   {
@@ -524,7 +524,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Matriz Simbiótica',
     slot: 'Torso',
     tier: 'T3',
-    cost: 225,
+    cost: 83,
     statModifiers: { lifeSteal: 0.1, maxHp: 40, armor: 3, critChance: -0.08 },
   },
   {
@@ -532,7 +532,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Corazón Reforzado',
     slot: 'Torso',
     tier: 'T3',
-    cost: 220,
+    cost: 81,
     statModifiers: { maxHp: 80, armor: 2, speed: -0.8, critChance: -0.1 },
   },
 
@@ -544,7 +544,7 @@ export const ALL_PARTS: PartDefinition[] = [
     name: 'Módulo de Disparo',
     slot: 'Ranged',
     tier: 'T1',
-    cost: 60,
+    cost: 62,
     statModifiers: { damage: -2 },
   },
 ];

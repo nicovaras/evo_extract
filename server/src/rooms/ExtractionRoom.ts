@@ -314,8 +314,10 @@ export class ExtractionRoom extends Room<GameState> {
 
     const dt = delta / 1000;
 
-    // Update run timer
-    this.state.timers.runTime += dt;
+    // Update run timer — only after game starts
+    if (this.state.gameStarted) {
+      this.state.timers.runTime += dt;
+    }
 
     // Passive HP regen: 1 HP/4s base for everyone, +1 HP/s with Núcleo (lifeSteal handled on hit)
     const BASE_REGEN_RATE = 0.25; // HP per second

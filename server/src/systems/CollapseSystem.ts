@@ -1,6 +1,6 @@
 import { Room } from 'colyseus';
 import { GameState, ToxicZoneState } from '../schemas/GameState';
-import { getZoneBounds } from '../../../shared/src/mapData';
+import { getZoneBounds, getSpawn } from '../../../shared/src/mapData';
 import collapseConfig from '../config/collapseConfig.json';
 
 const MAX_MINUTE = 13;
@@ -35,11 +35,7 @@ export class CollapseSystem {
     const currentMinute = Math.floor(state.timers.runTime / 60);
 
     // Generate new zones at the start of each new full minute (1–MAX_MINUTE)
-    if (
-      state.gameStarted &&
-      currentMinute > this.lastMinute &&
-      currentMinute <= MAX_MINUTE
-    ) {
+    if (state.gameStarted && currentMinute > this.lastMinute && currentMinute <= MAX_MINUTE) {
       this.lastMinute = currentMinute;
       const count = rand(1, 2);
 
@@ -71,7 +67,10 @@ export class CollapseSystem {
     // Apply toxic damage
     if (this.activeZones.size === 0) return;
 
+    const playerSpawn = getSpawn('player');
+
     state.players.forEach((player) => {
+      if (player.isDown) return;
       for (const zone of this.activeZones.values()) {
         if (
           player.x >= zone.x &&
@@ -81,15 +80,29 @@ export class CollapseSystem {
         ) {
           const dmg = this.dps * (deltaMs / 1000);
           player.hp = Math.max(0, player.hp - dmg);
-          room.clients.forEach((client) => {
-            if (client.sessionId === player.id) {
-              client.send('playerHit', {
-                damage: dmg,
-                source: 'toxic',
-                hp: player.hp,
-                maxHp: player.maxHp,
-              });
+
+          const died = player.hp <= 0;
+          if (died) {
+            player.isDown = true;
+            player.hp = 0;
+            player.downedAt = Date.now();
+            player.statTimesDowned += 1;
+            // Teleport corpse to hub spawn
+            if (playerSpawn) {
+              player.x = playerSpawn.x + Math.floor((Math.random() - 0.5) * 80);
+              player.y = playerSpawn.y + Math.floor((Math.random() - 0.5) * 80);
             }
+          }
+
+          room.broadcast('playerHit', {
+            sessionId: player.id,
+            damage: dmg,
+            source: 'toxic',
+            hp: player.hp,
+            maxHp: player.maxHp,
+            isDown: player.isDown,
+            knockbackX: 0,
+            knockbackY: 0,
           });
           break;
         }

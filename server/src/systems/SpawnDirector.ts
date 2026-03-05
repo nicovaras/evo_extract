@@ -76,35 +76,21 @@ export class SpawnDirector {
       state.timers.phase = 'late';
     }
 
-    // ── Mini-boss triggers ──────────────────────────────────────────────────
-    if (runTime >= 300) {
-      if (!this.miniBossASpawned) {
-        let playerInDeepA = false;
-        state.players.forEach((p) => {
-          if (p.x < 350 && p.y < 350) playerInDeepA = true;
-        });
-        if (playerInDeepA) {
-          const sp = getSpawn('miniBossA') ?? { x: 175, y: 175 };
-          const id = this.manager.spawnEnemy('miniBossA', sp.x, sp.y, false, true);
-          events.push({ id, type: 'miniBossA', x: sp.x, y: sp.y, isElite: false, isBoss: true });
-          this.miniBossASpawned = true;
-          console.log(`[SpawnDirector] Mini-boss A spawned at (${sp.x}, ${sp.y})`);
-        }
-      }
+    // ── Mini-boss triggers — spawn at fixed times, no position gate ───────
+    if (runTime >= 240 && !this.miniBossASpawned) {
+      const sp = getSpawn('miniBossA') ?? { x: 451, y: 808 };
+      const id = this.manager.spawnEnemy('miniBossA', sp.x, sp.y, false, true);
+      events.push({ id, type: 'miniBossA', x: sp.x, y: sp.y, isElite: false, isBoss: true });
+      this.miniBossASpawned = true;
+      console.log(`[SpawnDirector] Mini-boss A spawned at (${sp.x}, ${sp.y})`);
+    }
 
-      if (!this.miniBossBSpawned) {
-        let playerInDeepB = false;
-        state.players.forEach((p) => {
-          if (p.x > 1650 && p.y > 1650) playerInDeepB = true;
-        });
-        if (playerInDeepB) {
-          const sp = getSpawn('miniBossB') ?? { x: 1825, y: 1825 };
-          const id = this.manager.spawnEnemy('miniBossB', sp.x, sp.y, false, true);
-          events.push({ id, type: 'miniBossB', x: sp.x, y: sp.y, isElite: false, isBoss: true });
-          this.miniBossBSpawned = true;
-          console.log(`[SpawnDirector] Mini-boss B spawned at (${sp.x}, ${sp.y})`);
-        }
-      }
+    if (runTime >= 420 && !this.miniBossBSpawned) {
+      const sp = getSpawn('miniBossB') ?? { x: 1507, y: 737 };
+      const id = this.manager.spawnEnemy('miniBossB', sp.x, sp.y, false, true);
+      events.push({ id, type: 'miniBossB', x: sp.x, y: sp.y, isElite: false, isBoss: true });
+      this.miniBossBSpawned = true;
+      console.log(`[SpawnDirector] Mini-boss B spawned at (${sp.x}, ${sp.y})`);
     }
 
     // ── Regular spawn timer ─────────────────────────────────────────────────

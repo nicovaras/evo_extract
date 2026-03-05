@@ -196,6 +196,38 @@ export class HUD {
       .setInteractive({ useHandCursor: true });
 
     this.roomCodeText.on('pointerdown', () => {
+      // 1. Crear un elemento de texto oculto en el HTML
+      const textArea = document.createElement('textarea');
+      textArea.value = shortCode;
+
+      // 2. Lo hace invisible para el usuario pero presente para el sistema
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      textArea.style.top = '0';
+      document.body.appendChild(textArea);
+
+      // 3. Seleccionar el contenido
+      textArea.focus();
+      textArea.select();
+
+      // 4. Copia el contenido para versiones sin HTTPS
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          // Feedback visual en el juego
+          this.roomCodeText.setText(`✅ ${shortCode} copiado!`).setColor('#88ff88');
+          this.scene.time.delayedCall(1500, () => {
+            this.roomCodeText.setText(`🔑 ${shortCode}  [clic]`).setColor('#aaaaaa');
+          });
+        }
+      } catch (err) {
+        console.error('Error al copiar:', err);
+      }
+
+      // 5. Elimina el elemento del HTML
+      document.body.removeChild(textArea);
+
+      // Versión para HTTPS
       navigator.clipboard?.writeText(shortCode).then(() => {
         this.roomCodeText.setText(`✅ ${shortCode} copiado!`).setColor('#88ff88');
         this.scene.time.delayedCall(1500, () => {
@@ -549,3 +581,12 @@ export class HUD {
     if (this.downedTween) this.downedTween.stop();
   }
 }
+
+// Agregué como un negro el blockeo del botón derecho
+window.addEventListener(
+  'contextmenu',
+  (e) => {
+    e.preventDefault();
+  },
+  false
+);

@@ -3,10 +3,10 @@ import { EnemyState, GameState, PlayerState, ProjectileState } from '../../schem
 import { DamageSystem } from '../DamageSystem';
 import { resolveWallCollision } from '../WallCollision';
 
-const ENGAGE_RANGE = 160;       // px — approach until this distance
-const RETREAT_RANGE = 80;       // px — retreat if closer than this
-const SHOOT_COOLDOWN = 1.2;     // seconds
-const PROJECTILE_SPEED = 160;   // px/s
+const ENGAGE_RANGE = 160; // px — approach until this distance
+const RETREAT_RANGE = 80; // px — retreat if closer than this
+const SHOOT_COOLDOWN = 2.8; // seconds (more spaced out)
+const PROJECTILE_SPEED = 160; // px/s
 
 function dist(ax: number, ay: number, bx: number, by: number): number {
   const dx = ax - bx;
@@ -66,7 +66,6 @@ export function tickRangedBehavior(
     const wResolved0 = resolveWallCollision(enemy.x, enemy.y, 16);
     enemy.x = wResolved0.x;
     enemy.y = wResolved0.y;
-
   } else if (d <= ENGAGE_RANGE) {
     // SHOOT: in range, fire when cooldown ready
     enemy.behaviorState = 'SHOOT';
@@ -88,7 +87,6 @@ export function tickRangedBehavior(
       state.projectiles.set(proj.id, proj);
       enemy.shootCooldown = SHOOT_COOLDOWN;
     }
-
   } else {
     // APPROACH: move closer
     enemy.behaviorState = 'APPROACH';

@@ -449,9 +449,14 @@ export class ExtractionRoom extends Room<GameState> {
         );
       }
       this._checkExtractionWin();
-    } else if (this.state.timers.cargoDelivered >= WIN_CARGO_COUNT) {
-      this.state.timers.isExtracting = true;
-      this.state.timers.extractionCountdown = EXTRACTION_COUNTDOWN;
+    } else {
+      // Scale required cargo with player count: 6 + playerCount*2 (1p=8, 2p=10, 3p=12, 4p=14)
+      const playerCount = Math.max(1, this.state.players.size);
+      const requiredCargo = 6 + playerCount * 2;
+      if (this.state.timers.cargoDelivered >= requiredCargo) {
+        this.state.timers.isExtracting = true;
+        this.state.timers.extractionCountdown = EXTRACTION_COUNTDOWN;
+      }
     }
 
     // ── Win/Lose checks (Tarea 27+28) ─────────────────────────────────────

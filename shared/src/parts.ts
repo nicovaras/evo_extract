@@ -545,7 +545,7 @@ export const ALL_PARTS: PartDefinition[] = [
     slot: 'Ranged',
     tier: 'T1',
     cost: 60,
-    statModifiers: { damage: -6 },
+    statModifiers: { damage: -2 },
   },
 ];
 

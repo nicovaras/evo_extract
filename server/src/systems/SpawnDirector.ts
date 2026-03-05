@@ -12,17 +12,29 @@ export interface SpawnEvent {
   isBoss: boolean;
 }
 
-// Enemy caps by phase
-const MAX_ENEMIES_EARLY = 8;
-const MAX_ENEMIES_MID   = 18;
-const MAX_ENEMIES_LATE  = 28;
+// Enemy caps by phase (base values for 1 player — scale with player count)
+const MAX_ENEMIES_EARLY_BASE = 5;
+const MAX_ENEMIES_MID_BASE = 10;
+const MAX_ENEMIES_LATE_BASE = 16;
+
+function maxEnemiesForPhase(phase: string, playerCount: number): number {
+  const scale = Math.max(1, playerCount);
+  if (phase === 'early') return MAX_ENEMIES_EARLY_BASE + (scale - 1) * 3;
+  if (phase === 'mid') return MAX_ENEMIES_MID_BASE + (scale - 1) * 5;
+  return MAX_ENEMIES_LATE_BASE + (scale - 1) * 6;
+}
 
 // Returns a random point INSIDE a zone rect (with margin to avoid wall edges)
 const SPAWN_MARGIN = 60;
-function randomInsideZone(xMin: number, xMax: number, yMin: number, yMax: number): { x: number; y: number } {
+function randomInsideZone(
+  xMin: number,
+  xMax: number,
+  yMin: number,
+  yMax: number
+): { x: number; y: number } {
   return {
-    x: xMin + SPAWN_MARGIN + Math.random() * Math.max(0, (xMax - xMin) - SPAWN_MARGIN * 2),
-    y: yMin + SPAWN_MARGIN + Math.random() * Math.max(0, (yMax - yMin) - SPAWN_MARGIN * 2),
+    x: xMin + SPAWN_MARGIN + Math.random() * Math.max(0, xMax - xMin - SPAWN_MARGIN * 2),
+    y: yMin + SPAWN_MARGIN + Math.random() * Math.max(0, yMax - yMin - SPAWN_MARGIN * 2),
   };
 }
 
@@ -96,7 +108,8 @@ export class SpawnDirector {
     }
 
     // ── Regular spawn timer ─────────────────────────────────────────────────
-    const maxEnemies = phase === 'early' ? MAX_ENEMIES_EARLY : phase === 'mid' ? MAX_ENEMIES_MID : MAX_ENEMIES_LATE;
+    const playerCount = state.players.size;
+    const maxEnemies = maxEnemiesForPhase(phase, playerCount);
 
     if (this.manager.enemyCount >= maxEnemies) {
       return events;
@@ -116,10 +129,24 @@ export class SpawnDirector {
 
   private _spawnWave(state: GameState, phase: string, maxEnemies: number): SpawnEvent[] {
     const events: SpawnEvent[] = [];
-    // Wave size grows with phase
-    const count = phase === 'early' ? (Math.random() < 0.5 ? 1 : 2)
-                : phase === 'mid'   ? (Math.random() < 0.4 ? 2 : 3)
-                :                    (Math.random() < 0.3 ? 3 : 4);
+    const playerCount = Math.max(1, state.players.size);
+    // Wave size grows with phase and player count
+    const baseCount =
+      phase === 'early'
+        ? Math.random() < 0.5
+          ? 1
+          : 2
+        : phase === 'mid'
+          ? Math.random() < 0.4
+            ? 2
+            : 3
+          : Math.random() < 0.3
+            ? 3
+            : 4;
+    const count = Math.min(
+      baseCount + Math.floor((playerCount - 1) * 0.5),
+      maxEnemies - this.manager.enemyCount
+    );
 
     for (let i = 0; i < count; i++) {
       if (this.manager.enemyCount >= maxEnemies) break;
@@ -146,7 +173,7 @@ export class SpawnDirector {
   }
 
   private _rollElite(phase: string): boolean {
-    const threshold = phase === 'early' ? 0.05 : phase === 'mid' ? 0.20 : 0.40;
+    const threshold = phase === 'early' ? 0.05 : phase === 'mid' ? 0.2 : 0.4;
     return Math.random() < threshold;
   }
 }

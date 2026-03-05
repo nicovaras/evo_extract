@@ -82,6 +82,7 @@ export class GameScene extends Phaser.Scene {
   private tKey!: Phaser.Input.Keyboard.Key;
   private qKey!: Phaser.Input.Keyboard.Key;
   private lastWarpAttempt: number = 0;
+  private lastGrenadeSent: number = 0;
 
   // Wall physics group
   private wallGroup!: Phaser.Physics.Arcade.StaticGroup;
@@ -273,6 +274,19 @@ export class GameScene extends Phaser.Scene {
         this._tryShoot();
       } else {
         this._tryMelee();
+      }
+    }
+
+    // Right-click → throw grenade
+    if (this.gameHasStarted && !amDowned) {
+      const ptr = this.input.activePointer;
+      if (ptr.rightButtonDown() && Date.now() - this.lastGrenadeSent > 500) {
+        const serverMe = this.room.state.players.get(this.room.sessionId);
+        if ((serverMe as any)?.grenades > 0) {
+          this.lastGrenadeSent = Date.now();
+          const worldPt = this.cameras.main.getWorldPoint(ptr.x, ptr.y);
+          this.room.send('throwGrenade', { tx: worldPt.x, ty: worldPt.y });
+        }
       }
     }
 
@@ -935,6 +949,56 @@ export class GameScene extends Phaser.Scene {
     this.room.onMessage('potionFull', () => this.showToast('💊 Ya tenés HP máximo', '#aaaaaa'));
     this.room.onMessage('potionDropped', (msg: { potions: number }) => {
       this.showToast(`💊 ¡Poción del boss! (${msg.potions} total)`, '#ffff44');
+    });
+
+    // Granada thrown/explode
+    this.room.onMessage(
+      'grenadeThrown',
+      (msg: {
+        ownerId: string;
+        fromX: number;
+        fromY: number;
+        toX: number;
+        toY: number;
+        fuseMs: number;
+      }) => {
+        // Visual arc: small circle flying to target
+        const g = this.add.circle(msg.fromX, msg.fromY, 6, 0x44ff44).setDepth(60);
+        this.tweens.add({
+          targets: g,
+          x: msg.toX,
+          y: msg.toY,
+          duration: msg.fuseMs,
+          ease: 'Quad.easeOut',
+          onComplete: () => g.destroy(),
+        });
+      }
+    );
+    this.room.onMessage('grenadeExplode', (msg: { x: number; y: number; radius: number }) => {
+      // Explosion flash
+      const blast = this.add.circle(msg.x, msg.y, msg.radius, 0xff8800, 0.7).setDepth(65);
+      this.tweens.add({
+        targets: blast,
+        alpha: 0,
+        scaleX: 1.5,
+        scaleY: 1.5,
+        duration: 400,
+        onComplete: () => blast.destroy(),
+      });
+      CombatFX.showEnemyDeath(this, msg.x, msg.y);
+    });
+    this.room.onMessage('buyOk', (msg: { type: string; potions?: number; grenades?: number }) => {
+      if (msg.type === 'potion') this.showToast(`💊 Comprada (${msg.potions} total)`, '#88ff88');
+      if (msg.type === 'grenade') this.showToast(`💣 Comprada (${msg.grenades} total)`, '#88ff88');
+    });
+    this.room.onMessage('buyFail', (msg: { reason: string }) => {
+      const txt =
+        msg.reason === 'adn'
+          ? 'ADN insuficiente'
+          : msg.reason === 'hub'
+            ? 'Debés estar en el Hub'
+            : 'Stock lleno';
+      this.showToast(`❌ ${txt}`, '#ff6644');
     });
 
     this.room.onMessage('warped', () => {

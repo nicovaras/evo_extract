@@ -29,6 +29,7 @@ export class PlayerState extends Schema {
   @type('number') carryPenalty: number = 1.0; // multiplier on carry speed penalty (1.0 = full penalty)
   @type('number') interactSpeed: number = 1.0; // multiplier on interact times (1.0 = base)
   @type('number') potions: number = 2; // start with 2 potions
+  @type('number') grenades: number = 2; // start with 2 grenades
   @type('number') downedAt: number = 0;
 
   // Run stats (accumulated during match)

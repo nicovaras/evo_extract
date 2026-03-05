@@ -1,6 +1,6 @@
 import { Room, Client } from 'colyseus';
 import { GameState, PlayerState, ProjectileState, AdnNode } from '../schemas/GameState';
-import { getSpawn, MAP_WALLS } from '../../../shared/src/mapData';
+import { getSpawn, MAP_WALLS, inZone } from '../../../shared/src/mapData';
 import { InputProcessor, InputPayload } from '../systems/InputProcessor';
 import { CargoSystem } from '../systems/CargoSystem';
 import { WinLoseChecker } from '../systems/WinLoseChecker';
@@ -64,6 +64,11 @@ export class ExtractionRoom extends Room<GameState> {
     this.collapseSystem.init(this.state, this);
 
     // ── Input ───────────────────────────────────────────────────────────────
+    // ── Ping/pong ────────────────────────────────────────────────────────────
+    this.onMessage('ping', (client) => {
+      client.send('pong', {});
+    });
+
     // ── Ready system ────────────────────────────────────────────────────────
     this.onMessage('setReady', (client) => {
       const player = this.state.players.get(client.sessionId);
@@ -160,6 +165,108 @@ export class ExtractionRoom extends Room<GameState> {
       proj.damage = player.attackDamage;
       proj.ownerId = client.sessionId;
       this.state.playerProjectiles.set(proj.id, proj);
+    });
+
+    // ── Buy consumables in Hub ───────────────────────────────────────────────
+    const POTION_COST = 30;
+    const GRENADE_COST = 25;
+    const MAX_POTIONS = 4;
+    const MAX_GRENADES = 4;
+
+    this.onMessage('buyPotion', (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || player.isDown) return;
+      if (!_inHub(player.x, player.y)) {
+        client.send('buyFail', { reason: 'hub' });
+        return;
+      }
+      if (player.potions >= MAX_POTIONS) {
+        client.send('buyFail', { reason: 'full_potions' });
+        return;
+      }
+      if (this.state.timers.adn < POTION_COST) {
+        client.send('buyFail', { reason: 'adn' });
+        return;
+      }
+      this.state.timers.adn -= POTION_COST;
+      player.potions += 1;
+      client.send('buyOk', { type: 'potion', potions: player.potions });
+    });
+
+    this.onMessage('buyGrenade', (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || player.isDown) return;
+      if (!_inHub(player.x, player.y)) {
+        client.send('buyFail', { reason: 'hub' });
+        return;
+      }
+      if (player.grenades >= MAX_GRENADES) {
+        client.send('buyFail', { reason: 'full_grenades' });
+        return;
+      }
+      if (this.state.timers.adn < GRENADE_COST) {
+        client.send('buyFail', { reason: 'adn' });
+        return;
+      }
+      this.state.timers.adn -= GRENADE_COST;
+      player.grenades += 1;
+      client.send('buyOk', { type: 'grenade', grenades: player.grenades });
+    });
+
+    // ── Throw grenade ────────────────────────────────────────────────────────
+    const GRENADE_RADIUS = 90;
+    const GRENADE_DAMAGE = 55;
+    const GRENADE_FUSE_MS = 1200; // delay before explosion
+
+    this.onMessage('throwGrenade', (client, data: { tx: number; ty: number }) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || player.isDown || player.grenades <= 0) return;
+      player.grenades -= 1;
+
+      const tx = Math.max(0, Math.min(2000, data.tx));
+      const ty = Math.max(0, Math.min(2000, data.ty));
+
+      // Broadcast grenade arc to clients (visual only)
+      this.broadcast('grenadeThrown', {
+        ownerId: client.sessionId,
+        fromX: player.x,
+        fromY: player.y,
+        toX: tx,
+        toY: ty,
+        fuseMs: GRENADE_FUSE_MS,
+      });
+
+      // Schedule explosion server-side
+      setTimeout(() => {
+        if (this.gameOverSent) return;
+        // Damage enemies in radius (flat grenade damage, no crit)
+        const killed: string[] = [];
+        this.state.enemies.forEach((enemy, id) => {
+          const dx = enemy.x - tx;
+          const dy = enemy.y - ty;
+          if (Math.sqrt(dx * dx + dy * dy) <= GRENADE_RADIUS) {
+            enemy.hp = Math.max(0, enemy.hp - GRENADE_DAMAGE);
+            player.statDamageDealt += GRENADE_DAMAGE;
+            if (enemy.hp <= 0) {
+              player.statKills += 1;
+              killed.push(id);
+            }
+            this.broadcast('enemyHit', {
+              x: enemy.x,
+              y: enemy.y,
+              damage: GRENADE_DAMAGE,
+              isCrit: false,
+              killed: enemy.hp <= 0,
+              enemyId: id,
+            });
+          }
+        });
+        killed.forEach((id) => this._killEnemy(id));
+
+        this.broadcast('grenadeExplode', { x: tx, y: ty, radius: GRENADE_RADIUS });
+      }, GRENADE_FUSE_MS);
+
+      client.send('grenadeThrown', { grenades: player.grenades });
     });
 
     // Melee attack — hits all enemies within range
@@ -604,6 +711,10 @@ export class ExtractionRoom extends Room<GameState> {
     });
     console.log(`[ExtractionRoom] gameOver | win=${data.win} | reason=${data.reason ?? 'none'}`);
   }
+}
+
+function _inHub(x: number, y: number): boolean {
+  return inZone('hub', x, y);
 }
 
 function _projHitsWall(x: number, y: number): boolean {

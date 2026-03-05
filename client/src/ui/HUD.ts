@@ -34,6 +34,17 @@ export class HUD {
   // Room code (top-right)
   private roomCodeText!: Phaser.GameObjects.Text;
 
+  // Ping (top-right under room code)
+  private pingText!: Phaser.GameObjects.Text;
+  private lastPingTime: number = 0;
+  private pingMs: number = 0;
+
+  // Shop panel (shown in hub)
+  private shopBg!: Phaser.GameObjects.Rectangle;
+  private shopText!: Phaser.GameObjects.Text;
+  private shopBtnPotion!: Phaser.GameObjects.Text;
+  private shopBtnGrenade!: Phaser.GameObjects.Text;
+
   // Cargo progress (bottom-center)
   private cargoProgressText!: Phaser.GameObjects.Text;
 
@@ -169,12 +180,37 @@ export class HUD {
       .setScrollFactor(0)
       .setDepth(100);
 
-    // ── Room code (top-right, below player count) ─────────────────────────────
+    // ── Room code (top-right, below player count) — click to copy ────────────
     const shortCode = this.roomCode.slice(0, 8).toUpperCase();
     this.roomCodeText = this.scene.add
-      .text(W - pad, pad + 34, `🔑 ${shortCode}`, {
+      .text(W - pad, pad + 34, `🔑 ${shortCode}  [clic]`, {
         fontSize: '12px',
         color: '#aaaaaa',
+        fontFamily: 'monospace',
+        backgroundColor: '#00000055',
+        padding: { x: 4, y: 2 },
+      })
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setDepth(50)
+      .setInteractive({ useHandCursor: true });
+
+    this.roomCodeText.on('pointerdown', () => {
+      navigator.clipboard?.writeText(shortCode).then(() => {
+        this.roomCodeText.setText(`✅ ${shortCode} copiado!`).setColor('#88ff88');
+        this.scene.time.delayedCall(1500, () => {
+          this.roomCodeText.setText(`🔑 ${shortCode}  [clic]`).setColor('#aaaaaa');
+        });
+      });
+    });
+    this.roomCodeText.on('pointerover', () => this.roomCodeText.setColor('#ffffff'));
+    this.roomCodeText.on('pointerout', () => this.roomCodeText.setColor('#aaaaaa'));
+
+    // ── Ping (top-right, below room code) ────────────────────────────────────
+    this.pingText = this.scene.add
+      .text(W - pad, pad + 52, `📶 -- ms`, {
+        fontSize: '11px',
+        color: '#88ff88',
         fontFamily: 'monospace',
         backgroundColor: '#00000055',
         padding: { x: 4, y: 2 },
@@ -246,13 +282,96 @@ export class HUD {
       .setScrollFactor(0)
       .setDepth(100)
       .setVisible(false);
+
+    // ── Shop panel (center-right, visible when in hub) ────────────────────────
+    const shopX = W - pad - 160;
+    const shopY = H / 2 - 60;
+    this.shopBg = this.scene.add
+      .rectangle(shopX, shopY, 170, 120, 0x000000, 0.75)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(99)
+      .setVisible(false);
+
+    this.shopText = this.scene.add
+      .text(shopX + 8, shopY + 8, '🛒 Tienda Hub', {
+        fontSize: '13px',
+        color: '#ffdd44',
+        fontFamily: 'monospace',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(100)
+      .setVisible(false);
+
+    this.shopBtnPotion = this.scene.add
+      .text(shopX + 8, shopY + 32, '💊 Poción  [30 ADN]', {
+        fontSize: '12px',
+        color: '#88ff88',
+        fontFamily: 'monospace',
+        backgroundColor: '#1a3a1a',
+        padding: { x: 6, y: 4 },
+      })
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(100)
+      .setVisible(false)
+      .setInteractive({ useHandCursor: true });
+    this.shopBtnPotion.on('pointerdown', () => this.room.send('buyPotion', {}));
+    this.shopBtnPotion.on('pointerover', () => this.shopBtnPotion.setBackgroundColor('#2a5a2a'));
+    this.shopBtnPotion.on('pointerout', () => this.shopBtnPotion.setBackgroundColor('#1a3a1a'));
+
+    this.shopBtnGrenade = this.scene.add
+      .text(shopX + 8, shopY + 68, '💣 Granada  [25 ADN]', {
+        fontSize: '12px',
+        color: '#ffaa44',
+        fontFamily: 'monospace',
+        backgroundColor: '#3a2a0a',
+        padding: { x: 6, y: 4 },
+      })
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(100)
+      .setVisible(false)
+      .setInteractive({ useHandCursor: true });
+    this.shopBtnGrenade.on('pointerdown', () => this.room.send('buyGrenade', {}));
+    this.shopBtnGrenade.on('pointerover', () => this.shopBtnGrenade.setBackgroundColor('#5a4a1a'));
+    this.shopBtnGrenade.on('pointerout', () => this.shopBtnGrenade.setBackgroundColor('#3a2a0a'));
   }
 
   update(sessionId: string): void {
     const state = this.room.state;
     if (!state) return;
 
+    // Ping — measure round-trip every 2s
+    const now = performance.now();
+    if (now - this.lastPingTime > 2000) {
+      this.lastPingTime = now;
+      const sent = now;
+      this.room.send('ping', {});
+      this.room.onMessage('pong', () => {
+        this.pingMs = Math.round(performance.now() - sent);
+        const color = this.pingMs < 80 ? '#88ff88' : this.pingMs < 180 ? '#ffdd44' : '#ff6666';
+        this.pingText.setColor(color).setText(`📶 ${this.pingMs}ms`);
+      });
+    }
+
     const player = state.players.get(sessionId);
+
+    // Shop panel visibility (shown when in hub)
+    if (player) {
+      const HUB = { x: 706, y: 46, w: 500, h: 250 };
+      const inHub =
+        player.x >= HUB.x &&
+        player.x <= HUB.x + HUB.w &&
+        player.y >= HUB.y &&
+        player.y <= HUB.y + HUB.h;
+      this.shopBg.setVisible(inHub);
+      this.shopText.setVisible(inHub);
+      this.shopBtnPotion.setVisible(inHub);
+      this.shopBtnGrenade.setVisible(inHub);
+    }
 
     // HP
     if (player) {
@@ -320,9 +439,10 @@ export class HUD {
       const critPct = Math.round((player.critChance ?? 0) * 100);
       const mode = p.isRanged ? '🔫 Ranged' : '⚔️ Melee';
       const potions = p.potions ?? 0;
+      const grenades = (p as any).grenades ?? 0;
 
       this.statsText.setText(
-        `${mode}  💊 x${potions} (Q)\n` +
+        `${mode}  💊 x${potions} (Q)  💣 x${grenades} (RClick)\n` +
           `⚔️  Daño:     ${player.attackDamage}${fmtDelta(dDamage)}\n` +
           `🎯  Crit:     ${critPct}%  x${(player.critMult ?? 1.6).toFixed(1)}${fmtDelta(dCrit)}%\n` +
           `⚡  Cadencia: ${(p.attackRate ?? 1.0).toFixed(1)}x${fmtDelta(dCad, 1)}\n` +
@@ -414,6 +534,11 @@ export class HUD {
     this.timerText.destroy();
     this.playerCountText.destroy();
     this.roomCodeText.destroy();
+    this.pingText.destroy();
+    this.shopBg.destroy();
+    this.shopText.destroy();
+    this.shopBtnPotion.destroy();
+    this.shopBtnGrenade.destroy();
     this.cargoProgressText.destroy();
     this.extractionCountdownText.destroy();
     this.distanceText.destroy();

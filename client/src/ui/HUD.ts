@@ -207,7 +207,7 @@ export class HUD {
 
     // ── Cargo progress (bottom-center) ────────────────────────────────────────
     this.cargoProgressText = this.scene.add
-      .text(W / 2, H - pad, `📦 0/${WIN_CARGO_COUNT}`, {
+      .text(W / 2, H - pad, `📦 0/8`, {
         fontSize: '18px',
         color: '#ffaa00',
         fontFamily: 'monospace',
@@ -374,8 +374,9 @@ export class HUD {
     // Cargo progress + current seal cost
     const delivered = state.timers?.cargoDelivered ?? 0;
     const sealed = (state.timers as any)?.cargoSealed ?? 0;
+    const required = (state.timers as any)?.cargoRequired ?? WIN_CARGO_COUNT;
     const nextCost = 55 + sealed * 10;
-    this.cargoProgressText.setText(`📦 ${delivered}/${WIN_CARGO_COUNT}  [F: ${nextCost} ADN]`);
+    this.cargoProgressText.setText(`📦 ${delivered}/${required}  [F: ${nextCost} ADN]`);
 
     // Extraction countdown
     const isExtracting = state.timers?.isExtracting ?? false;

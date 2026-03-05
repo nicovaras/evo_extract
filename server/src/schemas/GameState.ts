@@ -99,6 +99,7 @@ export class GameTimers extends Schema {
   @type('number') adn: number = 0; // global shared ADN pool
   @type('number') cargoDelivered: number = 0;
   @type('number') cargoSealed: number = 0; // total sealed this match (for cost scaling)
+  @type('number') cargoRequired: number = 8; // scales with player count
   @type('number') extractionCountdown: number = 0;
   @type('boolean') isExtracting: boolean = false;
 }

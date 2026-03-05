@@ -452,8 +452,8 @@ export class ExtractionRoom extends Room<GameState> {
     } else {
       // Scale required cargo with player count: 6 + playerCount*2 (1p=8, 2p=10, 3p=12, 4p=14)
       const playerCount = Math.max(1, this.state.players.size);
-      const requiredCargo = 6 + playerCount * 2;
-      if (this.state.timers.cargoDelivered >= requiredCargo) {
+      this.state.timers.cargoRequired = 6 + playerCount * 2;
+      if (this.state.timers.cargoDelivered >= this.state.timers.cargoRequired) {
         this.state.timers.isExtracting = true;
         this.state.timers.extractionCountdown = EXTRACTION_COUNTDOWN;
       }
@@ -566,6 +566,7 @@ export class ExtractionRoom extends Room<GameState> {
       stats: {
         runTime: Math.floor(this.state.timers.runTime),
         cargoDelivered: this.state.timers.cargoDelivered,
+        cargoRequired: this.state.timers.cargoRequired,
         playerStats,
       },
     });

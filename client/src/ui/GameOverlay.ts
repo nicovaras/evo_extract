@@ -15,6 +15,7 @@ interface GameOverData {
   stats?: {
     runTime: number;
     cargoDelivered: number;
+    cargoRequired?: number;
     playerStats?: Record<string, PlayerStat>;
   };
 }
@@ -67,11 +68,16 @@ export class GameOverlay {
       const mm = String(Math.floor(data.stats.runTime / 60)).padStart(2, '0');
       const ss = String(data.stats.runTime % 60).padStart(2, '0');
       const sub = this.scene.add
-        .text(W / 2, 110, `⏱ ${mm}:${ss}   📦 ${data.stats.cargoDelivered}/8 cargas entregadas`, {
-          fontSize: '17px',
-          color: '#aaaaaa',
-          fontFamily: 'monospace',
-        })
+        .text(
+          W / 2,
+          110,
+          `⏱ ${mm}:${ss}   📦 ${data.stats.cargoDelivered}/${data.stats.cargoRequired ?? 8} cargas entregadas`,
+          {
+            fontSize: '17px',
+            color: '#aaaaaa',
+            fontFamily: 'monospace',
+          }
+        )
         .setOrigin(0.5, 0)
         .setScrollFactor(0)
         .setDepth(300);

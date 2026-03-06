@@ -1,4 +1,4 @@
-import { SPRITE_PLAYER, SPRITE_PARTS } from '../assets/spriteKeys';
+import { SPRITE_PLAYER, SPRITE_RIP, SPRITE_PARTS } from '../assets/spriteKeys';
 import { getPartById } from '@evo/shared';
 
 export type PartSlot = 'Head' | 'Arms' | 'Legs' | 'Torso' | 'Ranged';
@@ -45,6 +45,15 @@ export class PlayerBody {
 
     this._equipped = newSet;
     this._rebuild();
+  }
+
+  /** Switch to/from the RIP sprite on death/revive */
+  setDowned(isDowned: boolean): void {
+    this.baseBody.setTexture(isDowned ? SPRITE_RIP : SPRITE_PLAYER);
+    // Hide parts while dead, show them when alive
+    for (const [, att] of this.attachments) {
+      att.setVisible(!isDowned);
+    }
   }
 
   /** Reposition container to follow a physics body */

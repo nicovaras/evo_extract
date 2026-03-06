@@ -671,6 +671,7 @@ export class GameScene extends Phaser.Scene {
           for (let i = 0; i < playerState.equippedParts.length; i++)
             ids.push(playerState.equippedParts[i]);
           rp.body.updateEquipped(ids);
+          rp.body.setDowned(playerState.isDown as boolean);
         }
       });
     });
@@ -828,11 +829,16 @@ export class GameScene extends Phaser.Scene {
           ids.push(playerState.equippedParts[i]);
         this.localBody.updateEquipped(ids);
       });
+      // Listen for isDown changes on local player
+      playerState.onChange(() => {
+        this.localBody.setDowned(playerState.isDown as boolean);
+      });
       // Also apply current state immediately (on reconnect)
       const ids: string[] = [];
       for (let i = 0; i < playerState.equippedParts.length; i++)
         ids.push(playerState.equippedParts[i]);
       this.localBody.updateEquipped(ids);
+      this.localBody.setDowned(playerState.isDown as boolean);
     });
 
     this.room.onMessage('craftResult', (msg: { success: boolean }) => {

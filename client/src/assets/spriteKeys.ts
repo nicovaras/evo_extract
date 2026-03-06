@@ -12,6 +12,7 @@
 
 // ── Player ────────────────────────────────────────────────────────────────────
 export const SPRITE_PLAYER = 'player_base';
+export const SPRITE_RIP = 'rip';
 
 // ── Parts (slot attachments) ──────────────────────────────────────────────────
 // One sprite per slot×tier combination.
@@ -133,6 +134,7 @@ export const SPRITE_BULLET = 'bullet';
 export const ALL_SPRITES: { key: string; file: string }[] = [
   // Player
   { key: SPRITE_PLAYER, file: 'player_base.png' },
+  { key: SPRITE_RIP, file: 'rip.png' },
 
   // Parts
   { key: 'part_arms_t1_1', file: 'part_arms_t1_1.png' },
